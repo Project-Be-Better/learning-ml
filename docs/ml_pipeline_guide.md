@@ -1,79 +1,81 @@
-# TraceData ML Pipeline: A Ground-Level Technical Guide
+# TraceData ML Pipeline: A Guide for Fullstack Developers
 
-> **For:** Engineers familiar with software systems who are new to ML, MLOps, and production deployment.
-> **Goal:** Map every ML concept to a concrete file or function in this codebase.
+> **Who this is for:** You know what a REST API, a database, and a Docker container are. You've never trained an ML model.
+> **How to read this:** Every ML concept will be mapped to something you already understand.
 
 ---
 
-## 🗺️ The Big Picture
+## The One-Sentence Summary
 
-The entire system is an **ML-powered Factory Line**: raw sensor data goes in, and an intelligent driver coaching report comes out. Here is everything, end to end:
+This system takes raw sensor readings from a car, runs them through a math formula stored in a file, and produces a score — the same way a REST API takes a JSON body, processes it in a service class, and returns a response. The "ML" part is just an unusually smart service class.
+
+---
+
+## 🗺️ The Whole System at a Glance
 
 ```mermaid
 flowchart LR
-    subgraph "🏭 THE FACTORY LINE"
-        direction LR
-        A["📡 Vehicle Telemetry\n(Raw Sensor Data)"] --> B["⚙️ Feature Engineering\n(Physics → Numbers)"]
-        B --> C["🤖 ML Model\n(Numbers → Score)"]
-        C --> D["🔍 XAI Engine\n(Why that Score?)"]
-        C --> E["⚖️ Fairness Auditor\n(Is it Biased?)"]
-        D --> F["🧠 Behavior Agent\n(JSON → Human Language)"]
-        E --> F
-        F --> G["📊 Driver Dashboard\n(Final Report)"]
-    end
+    A["📡 Car Sensor Data"] --> B["📐 Feature Extractor\n(like a DTO transformer)"]
+    B --> C["🤖 Scoring Model\n(like a service class,\nbut trained not coded)"]
+    C --> D["🔍 Why-Explainer\n(like a stack trace\nfor the model's decision)"]
+    C --> E["⚖️ Fairness Checker\n(cohort comparison)"]
+    D --> F["🧠 Behavior Agent\n(JSON → English sentence)"]
+    E --> F
+    F --> G["📊 Driver Dashboard"]
 ```
 
 ---
 
-## Stage 1: Data — Where It All Begins
+## Stage 1: Getting Data In
 
-### What is Telemetry?
-Telemetry is a time-series stream of raw sensor readings from a moving vehicle. Each packet contains a timestamp, GPS coordinate, speed, and acceleration.
+### Telemetry = A Stream of Events
+
+Think of telemetry like **server access logs** — except instead of HTTP requests, you are logging what a car is doing every 30 seconds.
 
 ```mermaid
 timeline
-    title A 5-Minute Trip (One Reading Per 30s)
-    00m00s : speed=45 kmh, accel=0.2
-    00m30s : speed=72 kmh, accel=1.8
-    01m00s : speed=68 kmh, accel=-0.4
-    01m30s : speed=90 kmh, accel=2.2
-    02m00s : speed=85 kmh, accel=-1.6
-    02m30s : speed=60 kmh, accel=-2.1
+    title One 5-Minute Trip (One Log Entry Every 30 Seconds)
+    T+00s : speed=45 kmh, acceleration=0.2
+    T+30s : speed=72 kmh, acceleration=1.8
+    T+60s : speed=68 kmh, acceleration=-0.4
+    T+90s : speed=90 kmh, acceleration=2.2
+    T+120s : speed=85 kmh, acceleration=-1.6
+    T+150s : speed=60 kmh, acceleration=-2.1
 ```
 
 ### The Database Schema
-We store this time-series in a **Row-Oriented** schema (ADR 001). Each GPS reading is one database row — not a JSON blob.
+
+This is just a **normalized relational database**. Nothing unfamiliar here.
 
 ```mermaid
 erDiagram
     DRIVERS {
         int driver_id PK
         string name
-        float smoothness_avg
+        float smoothness_avg "Average score across all trips"
         float safety_avg
         float overall_avg
         int trip_count
-        json explanation_json
-        json fairness_metadata_json
-        text coaching_narrative
+        json explanation_json "ML explanation, stored as JSON"
+        json fairness_metadata_json "Cohort comparison result"
+        text coaching_narrative "Final English sentence from Agent"
     }
     TRIPS {
         int trip_id PK
         int driver_id FK
         datetime start_time
         datetime end_time
-        float distance_km
-        float smoothness_score
-        float safety_score
-        json explanation_json
-        json fairness_metadata_json
+        float smoothness_score "Output of the ML model"
+        float safety_score "Output of the rules engine"
+        json explanation_json "Why this trip scored this way"
+        json fairness_metadata_json "How this trip compares to peers"
     }
     TELEMETRY_POINTS {
         int point_id PK
         int trip_id FK
         datetime timestamp
         float speed_kmh
-        float acceleration_ms2
+        float acceleration_ms2 "The key raw value"
         float lat
         float lon
     }
@@ -84,25 +86,29 @@ erDiagram
 
 ---
 
-## Stage 2: Feature Engineering — Translating Physics into Numbers
+## Stage 2: Feature Engineering — The "DTO Transformation" of ML
 
-This is the **most important and most human** step in ML. The model cannot understand "jerky driving" — it only sees columns of numbers. Feature Engineering is the act of encoding your domain knowledge into those columns.
+### The Problem
+
+A model cannot understand "this driver brakes harshly." It only understands **numbers in columns**, same as how your backend cannot process a blob of text — it needs a structured DTO.
+
+**Feature Engineering is converting raw sensor arrays into a structured row of meaningful numbers.** You are the translator between physics and math.
 
 ```mermaid
 flowchart TD
-    subgraph "RAW INPUT: List of Acceleration Values"
-        R["[0.2, 1.8, -0.4, 2.2, -1.6, -2.1]"]
+    subgraph "RAW INPUT (like a raw HTTP body)"
+        R["acceleration_readings:\n[0.2, 1.8, -0.4, 2.2, -1.6, -2.1]"]
     end
 
-    subgraph "FEATURE EXTRACTION (features.py)"
-        F1["Jerk = Change in Accel\n[1.6, -2.2, 2.6, -3.8, -0.5]"]
-        F2["std_dev(Jerk)\n= accel_fluidity = 2.1"]
-        F3["std_dev(Accel)\n= driving_consistency = 1.7"]
-        F4["% of readings in [-0.5, +0.5]\n= comfort_zone_percent = 33%"]
+    subgraph "features.py (like a DTO transformer / mapper)"
+        F1["Compute Jerk = change in acceleration\n[1.6, -2.2, 2.6, -3.8, -0.5]"]
+        F2["accel_fluidity = std_dev(Jerk) = 2.1\n🡒 High means jerky"]
+        F3["driving_consistency = std_dev(accel) = 1.7\n🡒 High means erratic"]
+        F4["comfort_zone_percent = 33%\n🡒 % of time in gentle range"]
     end
 
-    subgraph "MODEL INPUT: Feature Row"
-        M["{ accel_fluidity: 2.1,\n  driving_consistency: 1.7,\n  comfort_zone_percent: 33.0 }"]
+    subgraph "STRUCTURED OUTPUT (like a DTO)"
+        M["{\n  accel_fluidity: 2.1,\n  driving_consistency: 1.7,\n  comfort_zone_percent: 33.0\n}"]
     end
 
     R --> F1 --> F2
@@ -113,389 +119,324 @@ flowchart TD
     F4 --> M
 ```
 
-### Intuition Behind Each Feature
-
-| Feature | Formula | Low Value Means | High Value Means |
-| :--- | :--- | :--- | :--- |
-| **`accel_fluidity`** | `std_dev(Δ acceleration)` | Smooth, gradual transitions | Jerky, sudden changes |
-| **`driving_consistency`** | `std_dev(acceleration)` | Predictable, steady pace | Erratic, unpredictable |
-| **`comfort_zone_percent`** | `% where |accel| ≤ 0.5` | Rarely in comfort zone | Nearly always gentle |
-
-> **Key Insight:** The model sees these 3 numbers, not GPS coordinates or timestamps. You are the translator between physics and mathematics.
+| Feature | Your Domain Analogy | Meaning |
+| :--- | :--- | :--- |
+| `accel_fluidity` | Response time variance across API calls | High = unstable / jerky |
+| `driving_consistency` | Throughput variance across requests | High = unpredictable load behavior |
+| `comfort_zone_percent` | % of requests under SLA threshold | High = mostly gentle driving |
 
 ---
 
-## Stage 3: ML Training — Teaching the Model to Score
+## Stage 3: ML Training — "Compiling" Business Logic
 
-Training happens **offline, once** (or periodically). It produces a `.joblib` artifact that is then used at runtime.
+### The Core Insight
+
+In traditional development, you **write** business logic: `if speed > 120 => deduct points`.
+
+In ML, you **show** the system thousands of examples and let it figure out the logic itself. Training is the equivalent of **compilation** — you do it once offline, and the output is a binary artifact you ship.
 
 ```mermaid
 flowchart LR
-    subgraph "OFFLINE: TRAINING (trainer.py)"
-        direction TB
-        TD["Training Data\n(thousands of trips)"] --> FE["Features\n[fluidity, consistency, comfort]"]
-        FE --> XG["XGBoost\nRegressor.fit()"]
-        Labels["Labels\n(smoothness_score)"] --> XG
-        XG --> ART["models/smoothness_model.joblib\n(The ML Artifact)"]
+    subgraph "OFFLINE: Training (trainer.py)"
+        TD["Training Dataset\n(thousands of trips\nwith known scores)"] --> XG["XGBoost\n.fit()"]
+        XG --> ART["models/smoothness_model.joblib\n📦 The ML Binary Artifact"]
     end
 
-    subgraph "ONLINE: INFERENCE (scoring.py)"
-        direction TB
-        NR["New Trip\n(never seen before)"] --> NFE["Feature Extraction"]
-        ART2["models/smoothness_model.joblib"] --> P["model.predict(features)"]
-        NFE --> P
-        P --> SC["Smoothness Score\n(e.g., 73 / 100)"]
+    subgraph "ONLINE: Runtime (scoring.py)"
+        NR["New Trip\n(never seen before)"] --> P["model.predict()"]
+        ART2["models/smoothness_model.joblib"] --> P
+        P --> SC["Score: 73 / 100"]
     end
 
-    ART -.-> |"Loaded at startup"| ART2
+    ART -.-> |"Loaded into memory\nat container startup"| ART2
 ```
 
-### The Training Loop (Simplified)
+> **Analogy:** The `.joblib` file is equivalent to a compiled `.jar` or `.dll`. You do not recompile on every request. You load it once and call it.
+
+### The Training Loop (Step-by-Step)
 
 ```mermaid
 sequenceDiagram
     participant T as trainer.py
     participant DB as SQLite DB
-    participant XG as XGBoost Model
+    participant XG as XGBoost
     participant FS as File System
 
-    T->>DB: SELECT feature triplets
-    DB-->>T: Rows with [fluidity, consistency, comfort]
-    T->>T: Build X (features) and y (labels) arrays
+    T->>DB: Get all trips with [fluidity, consistency, comfort] + known scores
+    DB-->>T: Rows of (features, score) pairs
+    T->>T: Build input matrix X and label array y
     T->>XG: model.fit(X_train, y_train)
-    Note over XG: The model finds the mathematical<br/>relationship between features and scores
-    XG-->>T: Trained model object
+    Note over XG: Learns: high fluidity + low comfort\n→ low smoothness score
+    XG-->>T: Trained model object in memory
     T->>FS: joblib.dump(model, "models/smoothness_model.joblib")
-    Note over FS: The "learned knowledge" is frozen to disk
+    Note over FS: "Learned knowledge" frozen to disk\nlike a compiled binary
     T->>XG: model.score(X_test, y_test)
-    XG-->>T: R² = 0.97 ✅
+    XG-->>T: R² = 0.97 (97% accuracy on test data)
 ```
 
 ---
 
-## Stage 4: Inference — Scoring a New Trip at Runtime
+## Stage 4: Inference — Calling the Trained Service
 
-"Inference" = using the trained model to generate predictions on **new, unseen data**.
+"Inference" is the ML word for **running the model at runtime to get a prediction**. Think of it like calling a service method. The model is just a really complex `calculateScore(features)` function.
 
 ```mermaid
 flowchart TD
-    subgraph "POST /score-trip"
-        T["New Telemetry\nfrom IoT → Redis"] --> FE["features.py\nextract_features()"]
-        FE --> INF["scoring.py\nmodel.predict(features)"]
-        INF --> SS["Smoothness Score\n(0-100)"]
-        T --> SF["Safety Rules Engine\n(scoring.py)"]
-        SF --> SAF["Safety Score\n(0-100)"]
-        SS --> C["Composite Score\n(0.6 * smooth + 0.4 * safety)"]
-        SAF --> C
-        C --> DB["Write to DB\n(trips table)"]
+    subgraph "What scoring.py does (the orchestrator)"
+        T["New telemetry arrives"] --> FE["features.py\nextract_features()"]
+        FE --> ML["model.predict(features)\n🤖 ML Smoothness Score"]
+        T --> RULES["Safety Rules Engine\nif speed > 120 → deduct 20pts"]
+        ML --> CS["Composite Score\n= 0.6 × smooth + 0.4 × safety"]
+        RULES --> CS
+        CS --> DB["Persist to trips table"]
     end
 ```
 
-### Why Hybrid? ML + Rules?
-
-```mermaid
-quadrantChart
-    title "ML vs Rules: When to Use Which"
-    x-axis "Subjective ←——→ Objective"
-    y-axis "Low Impact ←——→ High Impact"
-    quadrant-1 "ML Required"
-    quadrant-2 "LLM / Human"
-    quadrant-3 "Heuristics OK"
-    quadrant-4 "Hard Rules"
-    "Smoothness Score": [0.25, 0.85]
-    "Harsh Braking Penalty": [0.55, 0.6]
-    "Speed Limit Violation": [0.95, 0.9]
-    "Comfort Prediction": [0.15, 0.4]
-    "Journey Planning": [0.2, 0.65]
-```
-
-Speeding is **objective** (you either exceeded the limit or you didn't). You don't need ML to detect it — you need a rule. Smoothness is **subjective** (what feels smooth to one person differs from another). That's where ML shines.
+> **Why use ML for smoothness but rules for safety?**
+>
+> Safety is **objective**: you either violated a speed limit or you did not. A rule is better.
+> Smoothness is **subjective**: what feels smooth varies. An ML model trained on patterns is better.
 
 ---
 
-## Stage 5: Explainability (XAI) — Opening the Black Box
+## Stage 5: Explainability (XAI) — The Stack Trace for ML Decisions
 
-XGBoost is a black box. SHAP reverse-engineers its decisions.
+### The Problem
+The model gives you a score of 62. You cannot ship that to a driver without explaining *why*. In software, when something fails, you read the stack trace. In ML, you use **SHAP** to produce the equivalent.
 
 ```mermaid
 flowchart LR
-    subgraph "BLACK BOX"
-        IN["[fluidity=2.1,\n consistency=3.8,\n comfort=25.8]"] --> MODEL["XGBoost\n🔮"]
-        MODEL --> OUT["Score: 62"]
+    subgraph "WITHOUT SHAP (opaque)"
+        IN["[fluidity=2.1,\n consistency=3.8,\n comfort=25.8]"] --> MODEL["⬛ Black Box"]
+        MODEL --> OUT["Score: 62\n(No explanation)"]
     end
 
-    subgraph "SHAP EXPLANATION (explain.py)"
-        BV["Base Value: 67.1\n(model's average starting point)"]
-        F1["accel_fluidity: -5.0\n⬇ Hurts score"]
-        F2["driving_consistency: +3.8\n⬆ Helps score"]
-        F3["comfort_zone_percent: -3.9\n⬇ Hurts score"]
-        FINAL["Final Score: 62 = 67.1 - 5.0 + 3.8 - 3.9"]
+    subgraph "WITH SHAP (explain.py)"
+        BV["Starting Point (Base Value): 67.1"]
+        C1["accel_fluidity effect: -5.0\n'Your jerkiness cost you 5 points'"]
+        C2["driving_consistency effect: +3.8\n'Your consistency earned you 3.8 points'"]
+        C3["comfort_zone effect: -3.9\n'Low comfort cost you 3.9 points'"]
+        RESULT["Final Score: 67.1 - 5.0 + 3.8 - 3.9 = 62 ✅"]
     end
 
-    OUT -.->|"SHAP unpacks the math"| BV
-    BV --> FINAL
-    F1 --> FINAL
-    F2 --> FINAL
-    F3 --> FINAL
+    OUT -.->|"SHAP reverse-engineers this"| BV
 ```
 
-### Bidirectional XAI: Two Levels of Explanation
+### Two Levels of Explanation
 
 ```mermaid
 graph TD
-    subgraph "TRIP LEVEL (Local Explanation)"
-        TE["Trip #47: Score = 62"]
-        TE --> TS["SHAP: accel_fluidity -5.0\ndriving_consistency +3.8\ncomfort_zone_percent -3.9"]
-        TS --> TQ["Q: What happened on this specific trip?"]
+    subgraph "Trip-Level (Local): What happened on Trip 47?"
+        T1["Trip #47 Score: 62"]
+        T1 --> T2["SHAP → accel_fluidity caused -5pts\n(jerky start at T+30s)"]
     end
 
-    subgraph "DRIVER LEVEL (Global Signature)"
-        DE["Driver Ahmad: Avg Score = 74"]
-        DE --> DS["Aggregate SHAP across 50 trips:\naccel_fluidity mean=-2.1\nconsistency mean=+4.5"]
-        DS --> DQ["Q: What is Ahmad's overall driving signature?"]
+    subgraph "Driver-Level (Global): What is Ahmad's driving signature?"
+        D1["Ahmad's Average Score: 74"]
+        D1 --> D2["Aggregate SHAP → consistency is\nhis strongest trait across 50 trips"]
     end
 ```
 
 ---
 
-## Stage 6: Fairness — Is the Model Treating Everyone Equally?
+## Stage 6: Fairness — Is the Score Context-Aware?
+
+### The Question
+If a 68-year-old driver scores 70 — is that good or bad? Without context, we don't know. Fairness analysis adds cohort benchmarking.
 
 ```mermaid
 flowchart TD
-    subgraph "FAIRNESS AUDIT (fairness.py)"
-        D["Driver Score: 98"]
-        AG["Driver's Age Group\n(e.g., 61-70 years)"]
-        DB2["All drivers in\nage group 61-70"]
-        DB2 --> AVG["Cohort Average: 68.15"]
-        D --> DIFF["diff = 98 - 68.15 = +29.85"]
-        AVG --> DIFF
-        DIFF --> STATUS["Status: Outperforming ✅"]
-        STATUS --> META["fairness_metadata_json:\n{ age_cohort_avg: 68.15, diff: +29.85 }"]
+    subgraph "fairness.py"
+        DS["Driver's Score: 98"]
+        CG["Driver's Age Cohort: 61-70 years"]
+        DB2["All drivers age 61-70 → Average: 68.15"]
+        DS --> DIFF["diff = 98 - 68.15 = +29.85"]
+        DB2 --> DIFF
+        DIFF --> STATUS["This driver is outperforming their cohort ✅"]
+        STATUS --> JSON["fairness_metadata_json:\n{ age_cohort_avg: 68.15, diff: +29.85 }"]
     end
 ```
 
-### The Fairness Philosophy: Context, Not Correction
+### The Design Decision: Show Context, Never Change the Score
 
 ```mermaid
 stateDiagram-v2
-    state "Score Generated" as S
-    state "Fairness Check" as FC
-    state "Has Bias Signal?" as HBS
-    state "Adjust Score" as AS
-    state "Add Context" as AC
-    state "TraceData Approach ✅" as TA
-    state "Alternative Approach ❌" as AA
+    state "Bias signal detected" as BIAS
+    state "Silently adjust score downward" as BAD
+    state "Show cohort context alongside score" as GOOD
 
-    S --> FC
-    FC --> HBS
-    HBS --> AA : Yes → secretly penalize
-    AA --> AS : adjust down
-    HBS --> TA : Yes → show context
-    TA --> AC : explain cohort
-    note right of AC : "You're outperforming\nyour age group by\n29.86 points"
-    note right of AS : User never knows.\nTrust is lost.
+    BIAS --> BAD : ❌ Bad approach\n(doctor adjusting test results)
+    BIAS --> GOOD : ✅ TraceData approach\n(doctor showing population statistics)
+
+    note right of BAD : Driver never knows.\nTrust breaks.
+    note right of GOOD : "You scored 29pts above\nyour age group average."
 ```
 
 ---
 
-## Stage 7: The Behavior Agent — The Last Mile of Intelligence
+## Stage 7: The Behavior Agent — Converting JSON to English
 
-The Agent layer converts raw JSON intelligence into a human coaching report.
+### Why This Exists
+
+All the stages above produce **structured JSON**. Your drivers are not data scientists. They need a sentence, not a dictionary. The Behavior Agent does this translation.
 
 ```mermaid
 flowchart TD
-    subgraph "INPUTS (from DB)"
-        XAI["XAI Data\n{accel_fluidity: 3.8,\n consistency: 1.28}"]
-        FAIR["Fairness Data\n{cohort_avg: 68.15, diff: +29.86}"]
+    subgraph "src/agents/behavior/agent.py"
+        IN1["XAI JSON:\n{accel_fluidity: 1.28,\n driving_consistency: 3.80,\n base_value: 67.1}"]
+        IN2["Fairness JSON:\n{age_cohort_avg: 68.15, diff: +29.86}"]
+
+        S1["1. Filter out 'base_value'\n(it's a model intercept, not a behavior)"]
+        S2["2. Find top feature\n(driving_consistency = 3.80 is highest)"]
+        S3["3. Map fairness diff to status\n(+29.86 → 'outperforming')"]
+        S4["4. Fill sentence template\nor later: call Gemini LLM"]
+
+        OUT["'Based on your recent trips, you are outperforming\nyour age cohort by 29.86 points. Your success is\ndriven by your excellent driving consistency.'"]
     end
 
-    subgraph "BEHAVIOR AGENT (src/agents/behavior/agent.py)"
-        B1["1. Filter ignored features\n(remove 'base_value')"]
-        B2["2. Find top SHAP feature\n(e.g., driving_consistency = 3.8)"]
-        B3["3. Determine fairness status\n(diff > 0 → outperforming)"]
-        B4["4. Compose narrative using\nheuristic template (or LLM later)"]
-    end
-
-    subgraph "OUTPUT"
-        NAR["'Based on your recent trips, you are\noutperforming your age cohort by 29.86 points.\nYour success is driven by your excellent\ndriving consistency.'"]
-    end
-
-    XAI --> B1 --> B2
-    FAIR --> B3
-    B2 --> B4
-    B3 --> B4
-    B4 --> NAR
+    IN1 --> S1 --> S2
+    IN2 --> S3
+    S2 --> S4
+    S3 --> S4
+    S4 --> OUT
 ```
 
 ---
 
-## Stage 8: MLOps — The End-to-End Deployment Architecture
+## Stage 8: Deployment — MLOps Is Just DevOps for Models
 
-This is the full production system showing how all components interact.
+### The Full Picture
 
-```mermaid
-C4Context
-    title System Context for TraceData ML Platform
-    Person(driver, "Driver", "Uses the TraceData mobile app")
-    System(tracedata, "TraceData Platform", "Multi-container ML scoring system")
-    System_Ext(iot, "Vehicle IoT Device", "Publishes raw telemetry")
-    Rel(driver, tracedata, "Views coaching report, submits feedback")
-    Rel(iot, tracedata, "Streams telemetry directly to Redis")
-```
+MLOps = DevOps + the additional concern of managing ML artifacts (model files) and ensuring that what you trained offline is exactly what runs at production.
 
 ```mermaid
 flowchart TB
-    subgraph "IoT / Simulator Layer"
-        IOT["📡 IoT Device / simulator.py"]
+    subgraph "📡 Data Sources"
+        IOT["IoT Device\n(Vehicle Sensor)"]
+        APP["Driver App"]
     end
 
-    subgraph "Infrastructure Layer (docker-compose.yml)"
-        REDIS["🔴 Redis\nBroker + Stream"]
-        subgraph "core-api (FastAPI)"
-            API["POST /feedback\nGET /driver/{id}"]
+    subgraph "docker-compose.yml"
+        REDIS["🔴 Redis\n(Message Broker)"]
+
+        subgraph "core-api container"
+            API["FastAPI\n• POST /feedback\n• GET /driver/{id}"]
         end
-        subgraph "agent-worker (Celery)"
-            WORKER["⚙️ Celery Worker\n• Feature Engineering\n• XGBoost Inference\n• SHAP/Fairness\n• Behavior Agent"]
+
+        subgraph "agent-worker container"
+            WORKER["Celery Worker\n• Feature Engineering\n• XGBoost.predict()\n• SHAP\n• Fairness\n• Behavior Agent"]
         end
-        DB[("🗄️ SQLite / PostgreSQL")]
+
+        DB[("SQLite / PostgreSQL")]
     end
 
-    subgraph "Frontend / Dashboard"
-        FE["📱 Driver App"]
-    end
-
-    IOT -->|"Direct push (high-velocity)"| REDIS
-    FE -->|"POST /feedback"| API
-    API -->|"enqueue(FeedbackTask)"| REDIS
-    REDIS -->|"Dequeue task"| WORKER
-    WORKER -->|"Write scores,\nXAI, narrative"| DB
-    FE -->|"GET /driver/{id}"| API
-    API -->|"Read pre-computed report"| DB
-    DB -->|"Return dashboard data"| API
+    IOT -->|"Direct push\n(high-volume telemetry)"| REDIS
+    APP -->|"POST /feedback"| API
+    API -->|"Enqueue task"| REDIS
+    REDIS -->|"Dequeue & process"| WORKER
+    WORKER -->|"Write scores + narrative"| DB
+    APP -->|"GET /driver/1"| API
+    API -->|"Read pre-computed result"| DB
+    DB -->|"Dashboard data"| API
 ```
 
-### Container Scaling Model
+### Why Two Containers?
 
 ```mermaid
-graph TD
-    subgraph "Scale horizontal for traffic"
-        A1["core-api replica 1"]
-        A2["core-api replica 2"]
-        A3["core-api replica 3"]
-    end
-    subgraph "Scale horizontal for ML throughput"
-        W1["agent-worker replica 1"]
-        W2["agent-worker replica 2"]
-    end
-    REDIS2["🔴 Redis"] --> W1
-    REDIS2 --> W2
-    LB["Load Balancer"] --> A1
-    LB --> A2
-    LB --> A3
+quadrantChart
+    title What Each Container Optimises For
+    x-axis "Response Speed: Slow ←——→ Fast"
+    y-axis "Compute: Light ←——→ Heavy"
+    quadrant-1 "Heavy + Fast\n(ideal but expensive)"
+    quadrant-2 "Heavy + Slow\n(background workers)"
+    quadrant-3 "Light + Slow\n(batch jobs)"
+    quadrant-4 "Light + Fast\n(real-time APIs)"
+    "core-api": [0.85, 0.2]
+    "agent-worker": [0.2, 0.85]
 ```
+
+**`core-api`** must be fast because a user is waiting. It only reads from the database.
+
+**`agent-worker`** can be slow because it runs in the background. It does all the heavy computation (ML inference, SHAP, LLM).
 
 ---
 
-## End-to-End Data Flow: The Complete Journey
+## End-to-End: The Complete Request Journey
 
 ```mermaid
 sequenceDiagram
-    participant IOT as IoT Sensor
-    participant Redis as Redis Broker
-    participant Worker as Celery Worker
-    participant FE as Feature Engine
-    participant XG as XGBoost Model
-    participant SHAP as SHAP Engine
-    participant FA as Fairness Auditor
-    participant BA as Behavior Agent
-    participant DB as Database
-    participant API as FastAPI (core-api)
+    actor Driver as 🧑 Driver
     participant App as Driver App
+    participant API as core-api (FastAPI)
+    participant Redis as 🔴 Redis
+    participant Worker as agent-worker (Celery)
+    participant DB as 🗄️ Database
 
-    Note over IOT,Redis: Phase 1: High-Velocity Ingestion
-    IOT->>Redis: push({ driver_id, trip_id, telemetry[] })
+    Note over Driver,Redis: A new trip ends
+    App->>Redis: Telemetry payload pushed directly
+    Redis->>Worker: Consume task
+    Worker->>Worker: features.py → 3 numbers
+    Worker->>Worker: model.predict() → smoothness: 73
+    Worker->>Worker: safety_rules() → safety: 100
+    Worker->>Worker: shap.explain() → explanation_json
+    Worker->>Worker: fairness.audit() → fairness_json
+    Worker->>Worker: agent.generate() → narrative text
+    Worker->>DB: UPDATE drivers SET coaching_narrative, score...
 
-    Note over Redis,Worker: Phase 2: Background Processing
-    Redis->>Worker: consume task
-    Worker->>FE: extract_features(telemetry)
-    FE-->>Worker: {fluidity=2.1, consistency=3.8, comfort=25.8}
-    Worker->>XG: model.predict(features)
-    XG-->>Worker: smoothness_score = 73
-    Worker->>Worker: apply_safety_rules(telemetry)
-    Worker-->>Worker: safety_score = 100
-    Worker->>SHAP: explain(trip_id, features)
-    SHAP-->>Worker: explanation_json
-    Worker->>FA: audit(driver_id, score)
-    FA-->>Worker: fairness_metadata_json
-    Worker->>BA: generate_narrative(driver_id)
-    BA-->>Worker: coaching_narrative (text)
-    Worker->>DB: UPDATE drivers SET coaching_narrative, explanation_json
-
-    Note over API,App: Phase 3: Frontend Read (Lightning Fast)
+    Note over Driver,DB: Later — driver opens the app
+    Driver->>App: Opens profile
     App->>API: GET /driver/1
-    API->>DB: SELECT * FROM drivers WHERE driver_id=1
-    DB-->>API: Pre-computed profile
+    API->>DB: SELECT * FROM drivers WHERE id=1
+    DB-->>API: All pre-computed data
     API-->>App: { score, xai, fairness, coaching_narrative }
+    App-->>Driver: "You are outperforming your\ncohort by 29.86 points..."
 ```
 
 ---
 
-## 📂 Codebase Map
+## 📂 Where to Find Everything
 
 ```mermaid
 graph TD
-    subgraph "src/core/ — The Engine"
-        CFG["config.py\nCentralized paths"]
-        FT["features.py\nPhysics extraction"]
-        SC["scoring.py\nML + Rules orchestrator"]
-        EX["explain.py\nSHAP/LIME"]
-        FA["fairness.py\nBias auditing"]
-        CA["celery_app.py\nTask queue config"]
+    subgraph "src/core/ — The Brains"
+        FT["features.py\nRaw data → structured numbers"]
+        SC["scoring.py\nOrchestrates ML + Rules"]
+        EX["explain.py\nSHAP stack trace"]
+        FA["fairness.py\nCohort comparison"]
+        CA["celery_app.py\nTask queue wiring"]
     end
 
-    subgraph "src/agents/behavior/ — The Agent Domain"
-        AG["agent.py\nHeuristic + LLM narrative"]
-        TK["tasks.py\nCelery async bindings"]
+    subgraph "src/agents/behavior/ — The Voice"
+        AG["agent.py\nConverts JSON to English"]
+        TK["tasks.py\nCelery async wrapper"]
     end
 
-    subgraph "src/utils/ — Operational Scripts"
-        SIM["simulator.py\nDB init + synthetic data"]
-        TR["trainer.py\nXGBoost training"]
-        PR["processor.py\nBatch feature extraction"]
-        CL["cleanup_db.py\nDB maintenance"]
+    subgraph "src/utils/ — The Toolbox"
+        SIM["simulator.py\nGenerates fake training data"]
+        TR["trainer.py\nTrains + saves the model"]
+        PR["processor.py\nBatch-extracts features"]
     end
 
-    subgraph "Root — Entrypoints & Config"
-        MAIN["main.py\nFastAPI application"]
-        DC["docker-compose.yml\nContainer orchestration"]
-        PY["pyproject.toml\nudependencies"]
-        MOD["models/\nML artifacts (.joblib)"]
+    subgraph "Root"
+        MAIN["main.py\nFastAPI app"]
+        DC["docker-compose.yml\nAll 3 containers"]
+        MOD["models/\n.joblib artifact files"]
     end
-
-    MAIN --> SC
-    MAIN --> TK
-    TK --> AG
-    SC --> FT
-    SC --> EX
-    SC --> FA
-    TR --> MOD
-    SC --> MOD
-    SIM --> CFG
-    TR --> CFG
-    SC --> CFG
 ```
 
 ---
 
-## 🎓 Glossary for the ML-Curious Engineer
+## 📖 Glossary: ML → Fullstack Translations
 
-| Term | Software Analogy | TraceData Equivalent |
-| :--- | :--- | :--- |
-| **Training** | Compiling code | `trainer.py` run |
-| **Model Artifact** | `.jar` / `.dll` binary | `models/smoothness_model.joblib` |
-| **Inference** | Calling a function | `model.predict(features)` in `scoring.py` |
-| **Feature Engineering** | Data transformation | `src/core/features.py` |
-| **SHAP** | Stack trace for model decisions | `explain.py` |
-| **MLOps** | DevOps for ML models | `docker-compose.yml` + Celery |
-| **Drift** | Memory leak / regression | Model accuracy degrading over time (future monitoring) |
-| **Synthetic Data** | Unit test mocks | `src/utils/simulator.py` |
+| ML/AI Term | What You Already Know | TraceData File |
+|:---|:---|:---|
+| **Feature Engineering** | DTO transformation / data mapping | `src/core/features.py` |
+| **Training** | Compiling code from source | `src/utils/trainer.py` |
+| **Model Artifact** | A compiled `.jar` or `.dll` binary | `models/smoothness_model.joblib` |
+| **Inference** | Calling a service method at runtime | `model.predict()` in `scoring.py` |
+| **SHAP (XAI)** | A stack trace for the model's decision | `src/core/explain.py` |
+| **Fairness Auditing** | A/B comparison with population stats | `src/core/fairness.py` |
+| **Celery Worker** | Background job queue worker | `agent-worker` in `docker-compose.yml` |
+| **Synthetic Data** | Mocked unit test data | `src/utils/simulator.py` |
+| **Model Drift** | A memory leak that accumulates over time | *(Future monitoring phase)* |
+| **MLOps** | DevOps — but also managing the model artifact lifecycle | `docker-compose.yml` + Celery |
