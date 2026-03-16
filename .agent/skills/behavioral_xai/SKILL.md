@@ -42,10 +42,10 @@ Use a supportive, coach-like tone that highlights performance relative to cohort
 - **Positive Impact**: Features that increased the score from the base.
 - **Negative Impact**: Features that decreased the score.
 
-## 5. Fairness & Cohort Metrics
-- **Age Cohort**: Group drivers by age range (e.g., <35, 35-50, >50).
-- **Difference (Diff)**: `driver_avg - cohort_avg`.
-- **Significance**: Large differences (>10 points) should be highlighted as outliers.
+## 5. Model Management & Artifacts
+- **Directory**: All trained models must reside in the `models/` folder.
+- **Format**: Use `.joblib` for model persistence to ensure fast loading and compatibility with Scikit-learn/XGBoost.
+- **Pathing**: Use relative paths (e.g., `models/smoothness_model.joblib`) in all Python scripts to ensure portability across different environments.
 
 ## 6. Verification Workflow
 1. Re-run `simulator.py` for fresh data.

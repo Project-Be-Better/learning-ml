@@ -7,7 +7,7 @@ from sklearn.metrics import mean_absolute_error, r2_score
 import joblib
 
 DB_NAME = "telemetry.db"
-MODEL_PATH = "smoothness_model.joblib"
+MODEL_PATH = "models/smoothness_model.joblib"
 
 def generate_labels(df):
     """

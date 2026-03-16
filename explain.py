@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sqlite3
 
-MODEL_PATH = "smoothness_model.joblib"
+MODEL_PATH = "models/smoothness_model.joblib"
 DB_NAME = "telemetry.db"
 
 class TripExplainer:

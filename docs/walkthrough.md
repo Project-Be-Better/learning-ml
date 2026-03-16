@@ -52,6 +52,11 @@ This is the "Human Layer" of our AI.
 - **Feature Filtering**: It intelligently filters out non-behavioral metadata like `base_value` to focus purely on actionable telemetry features (Consistency, Smoothness, etc.).
 - **Professional UX**: The driver receives professional feedback, such as: *"Based on your recent trips, you are outperforming your age cohort by 29.86 points. This strong performance is primarily driven by your excellent driving consistency."*
 
+### 6. ML Artifact Management
+To maintain production hygiene, we've organized our ML artifacts:
+- **`models/` Directory**: Centralized storage for trained model binaries (`.joblib`).
+- **Standard**: Ensuring that `trainer.py`, `scoring.py`, and `explain.py` share a consistent path for the model state.
+
 ## 🧪 Verification & Results
 
 ### API Interaction Example
