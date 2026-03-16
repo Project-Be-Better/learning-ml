@@ -1,12 +1,12 @@
 # TraceData ML Scoring Service
 
-Production-grade vehicle telemetry analysis system for **ExploreSG MK-IV**.
+Production-grade vehicle telemetry analysis system for **TraceData MK-IV**.
 
 ## 🏗️ Architecture
 The system is built as a **Modular Monolith** with a dedicated **Behavior Agent** for explainable AI and fairness auditing.
 
 ```
-exploresg-platform/
+tracedata-platform/
 └── ai-agents/ (learning-ml)
     ├── src/
     │   ├── core/      # Scoring, XAI, Fairness, Features

@@ -7,7 +7,7 @@ from src.core.scoring import ScoringService
 from src.agents.behavior_agent import BehaviorAgent
 from src.core.config import DB_NAME
 
-app = FastAPI(title="ExploreSG ML Scoring Service")
+app = FastAPI(title="TraceData ML Scoring Service")
 service = ScoringService()
 behavior_agent = BehaviorAgent()
 

@@ -43,7 +43,7 @@ class BehaviorAgent:
 
         # YOUR TURN: Implementation of the LLM prompt structure
         # prompt = f"""
-        # You are the ExploreSG Behavior Agent.
+        # You are the TraceData Behavior Agent.
         # Driver: {data['name']}
         # XAI Signature: {data['xai']}
         # Fairness Context: {data['fairness']}
