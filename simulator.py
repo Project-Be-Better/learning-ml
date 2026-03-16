@@ -22,7 +22,8 @@ def init_db():
             smoothness_avg REAL DEFAULT 0,
             safety_avg REAL DEFAULT 0,
             overall_avg REAL DEFAULT 0,
-            trip_count INTEGER DEFAULT 0
+            trip_count INTEGER DEFAULT 0,
+            fairness_metadata_json TEXT -- Group-relative metrics
         )
     """)
 
@@ -43,6 +44,7 @@ def init_db():
             smoothness_score REAL,
             safety_score REAL,
             overall_score REAL,
+            explanation_json TEXT, -- SHAP/LIME breakdown
             FOREIGN KEY (driver_id) REFERENCES drivers (driver_id)
         )
     """)

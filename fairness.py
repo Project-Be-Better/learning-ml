@@ -1,8 +1,9 @@
 from aif360.datasets import BinaryLabelDataset
-from aif360.metrics import BinaryLabelDatasetMetric, ClassificationMetric
+from aif360.metrics import BinaryLabelDatasetMetric
 import pandas as pd
 import sqlite3
 import numpy as np
+import json
 
 DB_NAME = "telemetry.db"
 
@@ -67,6 +68,51 @@ class FairnessAnalyzer:
         
         return results
 
+    def update_all_drivers_fairness(self):
+        """Calculates and persists fairness metadata for all drivers."""
+        df = self.get_fairness_data_with_ids()
+        
+        # Calculate group averages
+        age_group_avgs = df.groupby('is_old')['smoothness_score'].mean().to_dict()
+        exp_group_avgs = df.groupby('is_expert')['smoothness_score'].mean().to_dict()
+        
+        cursor = self.conn.cursor()
+        
+        for _, row in df.groupby('driver_id').first().iterrows():
+            driver_id = row.name
+            metadata = {
+                "age_cohort_avg": round(age_group_avgs.get(row['is_old'], 0), 2),
+                "experience_cohort_avg": round(exp_group_avgs.get(row['is_expert'], 0), 2),
+                "diff_from_age_cohort": round(row['smoothness_score'] - age_group_avgs.get(row['is_old'], 0), 2),
+                "status": "Above Average" if row['smoothness_score'] >= age_group_avgs.get(row['is_old'], 0) else "Below Average"
+            }
+            
+            cursor.execute("""
+                UPDATE drivers 
+                SET fairness_metadata_json = ? 
+                WHERE driver_id = ?
+            """, (json.dumps(metadata), int(driver_id)))
+            
+        self.conn.commit()
+        print(f"✅ Persisted fairness metadata for {len(df['driver_id'].unique())} drivers.")
+
+    def get_fairness_data_with_ids(self):
+        """Same as get_fairness_data but includes driver_id."""
+        query = """
+            SELECT 
+                d.driver_id,
+                d.age, 
+                d.years_experience, 
+                t.smoothness_score
+            FROM trips t
+            JOIN drivers d ON t.driver_id = d.driver_id
+            WHERE t.smoothness_score IS NOT NULL
+        """
+        df = pd.read_sql_query(query, self.conn)
+        df['is_old'] = (df['age'] >= 35).astype(int)
+        df['is_expert'] = (df['years_experience'] >= 10).astype(int)
+        return df
+
     def __del__(self):
         self.conn.close()
 
@@ -82,6 +128,9 @@ if __name__ == "__main__":
     exp_bias = analyzer.analyze_bias('is_expert')
     for k, v in exp_bias.items():
         print(f"  {k}: {v:.4f}")
+
+    print("\n💾 Persisting Driver-Level Fairness Metadata...")
+    analyzer.update_all_drivers_fairness()
 
     print("\n💡 Interpretation Guidance:")
     print("  - Disparate Impact: Should be near 1.0 (0.8 to 1.25 is usually acceptable).")

@@ -1,3 +1,5 @@
+import joblib
+import sqlite3
 import json
 import pandas as pd
 import numpy as np
@@ -67,9 +69,9 @@ class ScoringService:
         # 4. Update Trip
         cursor.execute("""
             UPDATE trips 
-            SET smoothness_score = ?, safety_score = ?, overall_score = ?
+            SET smoothness_score = ?, safety_score = ?, overall_score = ?, explanation_json = ?
             WHERE trip_id = ?
-        """, (smoothness_score, safety_score, overall_score, trip_id))
+        """, (smoothness_score, safety_score, overall_score, json.dumps(explanation), trip_id))
 
         # 5. Update Driver Aggregates
         cursor.execute("SELECT driver_id FROM trips WHERE trip_id = ?", (trip_id,))

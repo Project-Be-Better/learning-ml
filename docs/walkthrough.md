@@ -42,12 +42,13 @@ We extract features that represent the "physics" of driving:
 For the Smoothness score, we use **XGBoost**.
 - **XAI Integration**: We use **SHAP** and **LIME** to explain every score.
 - **Local Explanation**: User receives a breakdown: *"Your score was 85. It would be 90, but Jerk reduced it by 5 points."*
-- **Global Importance**: Our analysis shows that **Fluidity (Jerk)** is the most significant factor in a driver's smoothness rating.
+- **Persistence (ADR 002)**: We store these explanations as JSON in the `trips` table (`explanation_json`). This allows the UI to display the breakdown instantly without re-running the ML model.
 
 ### 4. AI Fairness Auditing (`fairness.py`)
 Using the **AIF360** framework, we audit the model for bias:
 - **Protected Attributes**: We track **Age** and **Years of Experience**.
-- **Metrics**: We calculate **Disparate Impact** and **Statistical Parity** to ensure the model doesn't unfairly penalize novice or older drivers beyond their actual driving performance.
+- **Metrics**: We calculate **Disparate Impact** and **Statistical Parity**.
+- **Cohort Benchmarking**: We persist driver-specific fairness metadata (`fairness_metadata_json`) in the `drivers` table, showing how they compare to their age and experience cohorts.
 
 ---
 

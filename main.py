@@ -78,7 +78,7 @@ def get_driver_scores(driver_id: int):
     cursor = conn.cursor()
     
     cursor.execute("""
-        SELECT name, smoothness_avg, safety_avg, overall_avg, trip_count 
+        SELECT name, smoothness_avg, safety_avg, overall_avg, trip_count, fairness_metadata_json 
         FROM drivers WHERE driver_id = ?
     """, (driver_id,))
     driver = cursor.fetchone()
@@ -92,7 +92,8 @@ def get_driver_scores(driver_id: int):
         "smoothness_avg": round(driver[1], 2),
         "safety_avg": round(driver[2], 2),
         "overall_avg": round(driver[3], 2),
-        "trip_count": driver[4]
+        "trip_count": driver[4],
+        "fairness_metadata": json.loads(driver[5]) if driver[5] else None
     }
 
 if __name__ == "__main__":
