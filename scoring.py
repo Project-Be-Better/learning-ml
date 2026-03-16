@@ -1,9 +1,8 @@
-import joblib
-import sqlite3
 import json
 import pandas as pd
 import numpy as np
 from features import extract_smoothness_features, detect_safety_events
+from explain import TripExplainer
 
 MODEL_PATH = "smoothness_model.joblib"
 DB_NAME = "telemetry.db"
@@ -11,6 +10,7 @@ DB_NAME = "telemetry.db"
 class ScoringService:
     def __init__(self):
         self.model = joblib.load(MODEL_PATH)
+        self.explainer = TripExplainer()
 
     def calculate_safety_score(self, events):
         """
@@ -60,15 +60,18 @@ class ScoringService:
         smoothness_score = self.predict_smoothness_score(features)
         safety_score = self.calculate_safety_score(events)
         overall_score = (smoothness_score + safety_score) / 2
+        
+        # 3. Generate Explanation
+        explanation = self.explainer.explain_trip_shap(features)
 
-        # 3. Update Trip
+        # 4. Update Trip
         cursor.execute("""
             UPDATE trips 
             SET smoothness_score = ?, safety_score = ?, overall_score = ?
             WHERE trip_id = ?
         """, (smoothness_score, safety_score, overall_score, trip_id))
 
-        # 4. Update Driver Aggregates
+        # 5. Update Driver Aggregates
         cursor.execute("SELECT driver_id FROM trips WHERE trip_id = ?", (trip_id,))
         driver_id = cursor.fetchone()[0]
         self.update_driver_stats(driver_id, cursor)
@@ -79,7 +82,8 @@ class ScoringService:
         return {
             "smoothness": round(smoothness_score, 2),
             "safety": round(safety_score, 2),
-            "overall": round(overall_score, 2)
+            "overall": round(overall_score, 2),
+            "explanation": explanation
         }
 
     def update_driver_stats(self, driver_id, cursor):

@@ -17,6 +17,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS drivers (
             driver_id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
+            age INTEGER,
+            years_experience INTEGER,
             smoothness_avg REAL DEFAULT 0,
             safety_avg REAL DEFAULT 0,
             overall_avg REAL DEFAULT 0,
@@ -120,7 +122,14 @@ def simulate_data(num_drivers=5, trips_per_driver=10):
     
     for i in range(num_drivers):
         name = driver_names[i % len(driver_names)]
-        cursor.execute("INSERT INTO drivers (name) VALUES (?)", (name,))
+        age = random.randint(22, 65)
+        # Experience is roughly age - distance
+        exp = max(0, age - random.randint(20, 25))
+        
+        cursor.execute("""
+            INSERT INTO drivers (name, age, years_experience) 
+            VALUES (?, ?, ?)
+        """, (name, age, exp))
         driver_id = cursor.lastrowid
         
         for t in range(trips_per_driver):
