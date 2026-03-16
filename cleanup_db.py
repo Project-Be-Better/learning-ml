@@ -1,6 +1,6 @@
 import sqlite3
 
-DB_NAME = "telemetry.db"
+DB_NAME = "telemetry_v3.db"
 
 def cleanup():
     conn = sqlite3.connect(DB_NAME)

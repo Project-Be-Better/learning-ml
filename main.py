@@ -7,7 +7,7 @@ from scoring import ScoringService
 
 app = FastAPI(title="ExploreSG ML Scoring Service")
 service = ScoringService()
-DB_NAME = "telemetry.db"
+DB_NAME = "telemetry_v3.db"
 
 class TelemetryPoint(BaseModel):
     timestamp: str
@@ -63,10 +63,18 @@ def score_trip_endpoint(request: TripTelemetryRequest):
         
         if not scores:
             raise HTTPException(status_code=500, detail="Scoring failed")
-            
+        
+        # 4. Fetch Fairness Metadata (if already populated by auditor)
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute("SELECT fairness_metadata_json FROM trips WHERE trip_id = ?", (trip_id,))
+        fairness_row = cursor.fetchone()
+        conn.close()
+
         return {
             "trip_id": trip_id,
-            "scores": scores
+            "scores": scores,
+            "fairness_context": json.loads(fairness_row[0]) if fairness_row and fairness_row[0] else None
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -78,7 +86,7 @@ def get_driver_scores(driver_id: int):
     cursor = conn.cursor()
     
     cursor.execute("""
-        SELECT name, smoothness_avg, safety_avg, overall_avg, trip_count, fairness_metadata_json 
+        SELECT name, smoothness_avg, safety_avg, overall_avg, trip_count, fairness_metadata_json, explanation_json
         FROM drivers WHERE driver_id = ?
     """, (driver_id,))
     driver = cursor.fetchone()
@@ -93,7 +101,8 @@ def get_driver_scores(driver_id: int):
         "safety_avg": round(driver[2], 2),
         "overall_avg": round(driver[3], 2),
         "trip_count": driver[4],
-        "fairness_metadata": json.loads(driver[5]) if driver[5] else None
+        "fairness_metadata": json.loads(driver[5]) if driver[5] else None,
+        "driving_signature": json.loads(driver[6]) if driver[6] else None
     }
 
 if __name__ == "__main__":

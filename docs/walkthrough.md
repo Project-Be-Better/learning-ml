@@ -38,17 +38,13 @@ We extract features that represent the "physics" of driving:
 - **Driving Consistency**: The standard deviation of acceleration. Consistent drivers have lower variance.
 - **Comfort Zone %**: The percentage of time a driver stays within the "Comfort Band" ([-0.5, 0.5] m/s²).
 
-### 3. Machine Learning & Explainability (`explain.py`)
-For the Smoothness score, we use **XGBoost**.
-- **XAI Integration**: We use **SHAP** and **LIME** to explain every score.
-- **Local Explanation**: User receives a breakdown: *"Your score was 85. It would be 90, but Jerk reduced it by 5 points."*
-- **Persistence (ADR 002)**: We store these explanations as JSON in the `trips` table (`explanation_json`). This allows the UI to display the breakdown instantly without re-running the ML model.
+### 3. Bidirectional XAI (Driving Signature)
+- **Local (Trips)**: SHAP impact scores are persisted in the `trips` table (`explanation_json`). Drivers see exactly what features affected a specific trip score.
+- **Global (Drivers)**: We persist a **"Driving Signature"** in the `drivers` table (`explanation_json`). This represents the driver's aggregate behavior across all trips, identifying their unique driving style (e.g., "Consistently Smooth" or "Jerkiness Outlier").
 
-### 4. AI Fairness Auditing (`fairness.py`)
-Using the **AIF360** framework, we audit the model for bias:
-- **Protected Attributes**: We track **Age** and **Years of Experience**.
-- **Metrics**: We calculate **Disparate Impact** and **Statistical Parity**.
-- **Cohort Benchmarking**: We persist driver-specific fairness metadata (`fairness_metadata_json`) in the `drivers` table, showing how they compare to their age and experience cohorts.
+### 4. Bidirectional Fairness (Cohort Context)
+- **Fleet-Wide (Drivers)**: Fairness metadata (`fairness_metadata_json`) benchmarks each driver against their **Age** and **Experience** cohorts.
+- **Trip-Level (Trips)**: Individual trips now include a `fairness_context` comparing the trip's performance against the driver's demographic group, ensuring that outliers are understood within their cohort's context.
 
 ---
 

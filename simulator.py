@@ -5,7 +5,7 @@ import numpy as np
 from datetime import datetime, timedelta
 
 # --- CONFIGURATION ---
-DB_NAME = "telemetry.db"
+DB_NAME = "telemetry_v3.db"
 
 def init_db():
     """Initializes the SQLite database with the required schema."""
@@ -23,7 +23,9 @@ def init_db():
             safety_avg REAL DEFAULT 0,
             overall_avg REAL DEFAULT 0,
             trip_count INTEGER DEFAULT 0,
-            fairness_metadata_json TEXT -- Group-relative metrics
+            explanation_json TEXT, -- Aggregate SHAP (Driving Signature)
+            fairness_metadata_json TEXT, -- Group-relative metrics
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
@@ -45,6 +47,7 @@ def init_db():
             safety_score REAL,
             overall_score REAL,
             explanation_json TEXT, -- SHAP/LIME breakdown
+            fairness_metadata_json TEXT, -- Outlier/Bias context
             FOREIGN KEY (driver_id) REFERENCES drivers (driver_id)
         )
     """)

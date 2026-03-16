@@ -7,7 +7,7 @@ from features import extract_smoothness_features, detect_safety_events
 from explain import TripExplainer
 
 MODEL_PATH = "smoothness_model.joblib"
-DB_NAME = "telemetry.db"
+DB_NAME = "telemetry_v3.db"
 
 class ScoringService:
     def __init__(self):
@@ -89,35 +89,58 @@ class ScoringService:
         }
 
     def update_driver_stats(self, driver_id, cursor):
-        """Recalculates lifetime averages for a driver."""
+        """Recalculates lifetime averages and aggregate XAI for a driver."""
         cursor.execute("""
-            SELECT smoothness_score, safety_score, overall_score 
+            SELECT 
+                smoothness_score, safety_score, overall_score,
+                accel_fluidity, driving_consistency, comfort_zone_percent
             FROM trips 
             WHERE driver_id = ? AND overall_score IS NOT NULL
         """, (driver_id,))
-        trips = cursor.fetchall()
+        rows = cursor.fetchall()
         
-        if not trips:
+        if not rows:
             return
 
-        df = pd.DataFrame(trips, columns=["smoothness", "safety", "overall"])
+        df = pd.DataFrame(rows, columns=[
+            "smoothness", "safety", "overall", 
+            "accel_fluidity", "driving_consistency", "comfort_zone_percent"
+        ])
         
-        # Last Trip
-        last_smoothness = float(df["smoothness"].iloc[-1])
-        last_safety = float(df["safety"].iloc[-1])
-        last_overall = float(df["overall"].iloc[-1])
-
-        # Averages
+        # 1. Averages
         avg_smoothness = float(df["smoothness"].mean())
         avg_safety = float(df["safety"].mean())
         avg_overall = float(df["overall"].mean())
         count = len(df)
 
+        # 2. Calculate average features for "Driving Signature"
+        avg_feats = {
+            "accel_fluidity": float(df["accel_fluidity"].mean()),
+            "driving_consistency": float(df["driving_consistency"].mean()),
+            "comfort_zone_percent": float(df["comfort_zone_percent"].mean())
+        }
+        
+        # 3. Generate Aggregate Explanation (Driving Signature)
+        signature = self.explainer.explain_trip_shap(avg_feats)
+
+        # 4. Update Driver
         cursor.execute("""
-            UPDATE drivers 
-            SET smoothness_avg = ?, safety_avg = ?, overall_avg = ?, trip_count = ?
+            UPDATE drivers SET
+                smoothness_avg = ?,
+                safety_avg = ?,
+                overall_avg = ?,
+                trip_count = ?,
+                explanation_json = ?,
+                updated_at = CURRENT_TIMESTAMP
             WHERE driver_id = ?
-        """, (avg_smoothness, avg_safety, avg_overall, count, driver_id))
+        """, (
+            avg_smoothness,
+            avg_safety,
+            avg_overall,
+            count,
+            json.dumps(signature),
+            driver_id
+        ))
 
 if __name__ == "__main__":
     service = ScoringService()

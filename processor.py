@@ -2,7 +2,7 @@ import sqlite3
 import json
 from features import extract_smoothness_features, detect_safety_events
 
-DB_NAME = "telemetry.db"
+DB_NAME = "telemetry_v3.db"
 
 def process_trips():
     """Reads raw telemetry for all trips and updates the trips table with features."""
