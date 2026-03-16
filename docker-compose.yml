@@ -1,10 +1,37 @@
+version: '3.8'
+
 services:
-  scoring-service:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: always
+
+  core-api:
     build: .
+    command: ["uv", "run", "python", "main.py"]
     ports:
       - "8000:8000"
     volumes:
       - .:/app
     environment:
       - PYTHONUNBUFFERED=1
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    depends_on:
+      - redis
+    restart: always
+
+  agent-worker:
+    build: .
+    command: ["uv", "run", "celery", "-A", "src.core.celery_app", "worker", "--loglevel=info"]
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    depends_on:
+      - redis
+      - core-api
     restart: always

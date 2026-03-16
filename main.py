@@ -4,12 +4,11 @@ from typing import List
 import sqlite3
 import json
 from src.core.scoring import ScoringService
-from src.agents.behavior_agent import BehaviorAgent
+from src.agents.behavior.tasks import generate_driver_narrative
 from src.core.config import DB_NAME
 
 app = FastAPI(title="TraceData ML Scoring Service")
 service = ScoringService()
-behavior_agent = BehaviorAgent()
 
 class TelemetryPoint(BaseModel):
     timestamp: str
@@ -65,6 +64,9 @@ def score_trip_endpoint(request: TripTelemetryRequest):
         
         if not scores:
             raise HTTPException(status_code=500, detail="Scoring failed")
+            
+        # 4. Asynchronously generate the coaching narrative via Celery
+        generate_driver_narrative.delay(request.driver_id)
         
         # 4. Fetch Fairness Metadata (if already populated by auditor)
         conn = sqlite3.connect(DB_NAME)
@@ -88,7 +90,7 @@ def get_driver_scores(driver_id: int):
     cursor = conn.cursor()
     
     cursor.execute("""
-        SELECT name, smoothness_avg, safety_avg, overall_avg, trip_count, fairness_metadata_json, explanation_json
+        SELECT name, smoothness_avg, safety_avg, overall_avg, trip_count, fairness_metadata_json, explanation_json, coaching_narrative
         FROM drivers WHERE driver_id = ?
     """, (driver_id,))
     driver = cursor.fetchone()
@@ -105,7 +107,7 @@ def get_driver_scores(driver_id: int):
         "trip_count": driver[4],
         "fairness_metadata": json.loads(driver[5]) if driver[5] else None,
         "driving_signature": json.loads(driver[6]) if driver[6] else None,
-        "coaching_narrative": behavior_agent.generate_narrative(driver_id)
+        "coaching_narrative": driver[7] if len(driver) > 7 and driver[7] else "Narrative is being generated..."
     }
 
 if __name__ == "__main__":

@@ -46,7 +46,7 @@ We extract features that represent the "physics" of driving:
 - **Fleet-Wide (Drivers)**: Fairness metadata (`fairness_metadata_json`) benchmarks each driver against their **Age** and **Experience** cohorts.
 - **Trip-Level (Trips)**: Individual trips now include a `fairness_context` comparing the trip's performance against the driver's demographic group, ensuring that outliers are understood within their cohort's context.
 
-### 5. The Behavior (Scoring) Agent (`behavior_agent.py`)
+### 5. The Behavior (Scoring) Agent (`src/agents/behavior/agent.py`)
 This is the "Human Layer" of our AI.
 - **Narrative Translation**: Instead of showing just JSON, the **Behavior Agent** fetches the persisted XAI and Fairness data and uses an LLM (or heuristic logic in MVP) to produce a **Coaching Narrative**.
 - **Feature Filtering**: It intelligently filters out non-behavioral metadata like `base_value` to focus purely on actionable telemetry features (Consistency, Smoothness, etc.).
