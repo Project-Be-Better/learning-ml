@@ -1,0 +1,128 @@
+import joblib
+import sqlite3
+import json
+import pandas as pd
+import numpy as np
+from features import extract_smoothness_features, detect_safety_events
+
+MODEL_PATH = "smoothness_model.joblib"
+DB_NAME = "telemetry.db"
+
+class ScoringService:
+    def __init__(self):
+        self.model = joblib.load(MODEL_PATH)
+
+    def calculate_safety_score(self, events):
+        """
+        Safety Score = 100 - (Total Events * 2)
+        Clipping to 0.
+        """
+        total_events = (
+            events["harsh_braking_count"] + 
+            events["harsh_acceleration_count"] + 
+            events["speeding_events"]
+        )
+        penalty = total_events * 2
+        score = 100 - penalty
+        return float(max(0, score))
+
+    def predict_smoothness_score(self, features):
+        """Uses the XGBoost model to predict smoothness score."""
+        df = pd.DataFrame([features])
+        prediction = self.model.predict(df)[0]
+        return float(np.clip(prediction, 0, 100))
+
+    def score_trip(self, trip_id):
+        """Processes a trip, computes scores, and updates the database."""
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+
+        # Get raw telemetry
+        cursor.execute("""
+            SELECT timestamp, speed_kmh, acceleration_ms2, lat, lon 
+            FROM telemetry_points 
+            WHERE trip_id = ?
+        """, (trip_id,))
+        results = cursor.fetchall()
+        if not results:
+            return None
+        
+        points = [
+            {"timestamp": r[0], "speed_kmh": r[1], "acceleration_ms2": r[2], "lat": r[3], "lon": r[4]}
+            for r in results
+        ]
+
+        # 1. Feature Extraction
+        features = extract_smoothness_features(points)
+        events = detect_safety_events(points)
+
+        # 2. Score Calculation
+        smoothness_score = self.predict_smoothness_score(features)
+        safety_score = self.calculate_safety_score(events)
+        overall_score = (smoothness_score + safety_score) / 2
+
+        # 3. Update Trip
+        cursor.execute("""
+            UPDATE trips 
+            SET smoothness_score = ?, safety_score = ?, overall_score = ?
+            WHERE trip_id = ?
+        """, (smoothness_score, safety_score, overall_score, trip_id))
+
+        # 4. Update Driver Aggregates
+        cursor.execute("SELECT driver_id FROM trips WHERE trip_id = ?", (trip_id,))
+        driver_id = cursor.fetchone()[0]
+        self.update_driver_stats(driver_id, cursor)
+
+        conn.commit()
+        conn.close()
+
+        return {
+            "smoothness": round(smoothness_score, 2),
+            "safety": round(safety_score, 2),
+            "overall": round(overall_score, 2)
+        }
+
+    def update_driver_stats(self, driver_id, cursor):
+        """Recalculates lifetime averages for a driver."""
+        cursor.execute("""
+            SELECT smoothness_score, safety_score, overall_score 
+            FROM trips 
+            WHERE driver_id = ? AND overall_score IS NOT NULL
+        """, (driver_id,))
+        trips = cursor.fetchall()
+        
+        if not trips:
+            return
+
+        df = pd.DataFrame(trips, columns=["smoothness", "safety", "overall"])
+        
+        # Last Trip
+        last_smoothness = float(df["smoothness"].iloc[-1])
+        last_safety = float(df["safety"].iloc[-1])
+        last_overall = float(df["overall"].iloc[-1])
+
+        # Averages
+        avg_smoothness = float(df["smoothness"].mean())
+        avg_safety = float(df["safety"].mean())
+        avg_overall = float(df["overall"].mean())
+        count = len(df)
+
+        cursor.execute("""
+            UPDATE drivers 
+            SET smoothness_avg = ?, safety_avg = ?, overall_avg = ?, trip_count = ?
+            WHERE driver_id = ?
+        """, (avg_smoothness, avg_safety, avg_overall, count, driver_id))
+
+if __name__ == "__main__":
+    service = ScoringService()
+    # Score all existing trips in the DB
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT trip_id FROM trips")
+    trip_ids = [r[0] for r in cursor.fetchall()]
+    conn.close()
+
+    print(f"🎯 Scoring {len(trip_ids)} trips...")
+    for tid in trip_ids:
+        service.score_trip(tid)
+    print("✅ All trips scored and driver stats updated.")
