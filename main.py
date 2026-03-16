@@ -4,9 +4,11 @@ from typing import List
 import sqlite3
 import json
 from scoring import ScoringService
+from behavior_agent import BehaviorAgent
 
 app = FastAPI(title="ExploreSG ML Scoring Service")
 service = ScoringService()
+behavior_agent = BehaviorAgent()
 DB_NAME = "telemetry.db"
 
 class TelemetryPoint(BaseModel):
@@ -102,7 +104,8 @@ def get_driver_scores(driver_id: int):
         "overall_avg": round(driver[3], 2),
         "trip_count": driver[4],
         "fairness_metadata": json.loads(driver[5]) if driver[5] else None,
-        "driving_signature": json.loads(driver[6]) if driver[6] else None
+        "driving_signature": json.loads(driver[6]) if driver[6] else None,
+        "coaching_narrative": behavior_agent.generate_narrative(driver_id)
     }
 
 if __name__ == "__main__":
