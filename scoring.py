@@ -130,8 +130,7 @@ class ScoringService:
                 safety_avg = ?,
                 overall_avg = ?,
                 trip_count = ?,
-                explanation_json = ?,
-                updated_at = CURRENT_TIMESTAMP
+                explanation_json = ?
             WHERE driver_id = ?
         """, (
             avg_smoothness,
