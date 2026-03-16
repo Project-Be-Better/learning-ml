@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import sqlite3
 
 MODEL_PATH = "smoothness_model.joblib"
-DB_NAME = "telemetry_v3.db"
+DB_NAME = "telemetry.db"
 
 class TripExplainer:
     def __init__(self):

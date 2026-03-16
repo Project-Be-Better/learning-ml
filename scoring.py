@@ -7,7 +7,7 @@ from features import extract_smoothness_features, detect_safety_events
 from explain import TripExplainer
 
 MODEL_PATH = "smoothness_model.joblib"
-DB_NAME = "telemetry_v3.db"
+DB_NAME = "telemetry.db"
 
 class ScoringService:
     def __init__(self):

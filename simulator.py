@@ -5,31 +5,22 @@ import numpy as np
 from datetime import datetime, timedelta
 
 # --- CONFIGURATION ---
-DB_NAME = "telemetry_v3.db"
+DB_NAME = "telemetry.db"
 
 def init_db():
     """Initializes the SQLite database with the required schema."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
-    # Create Drivers Table
+    # Base tables
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS drivers (
             driver_id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             age INTEGER,
-            years_experience INTEGER,
-            smoothness_avg REAL DEFAULT 0,
-            safety_avg REAL DEFAULT 0,
-            overall_avg REAL DEFAULT 0,
-            trip_count INTEGER DEFAULT 0,
-            explanation_json TEXT, -- Aggregate SHAP (Driving Signature)
-            fairness_metadata_json TEXT, -- Group-relative metrics
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            years_experience INTEGER
         )
     """)
-
-    # Create Trips Table (Stores summary features and scores later)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS trips (
             trip_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,13 +37,9 @@ def init_db():
             smoothness_score REAL,
             safety_score REAL,
             overall_score REAL,
-            explanation_json TEXT, -- SHAP/LIME breakdown
-            fairness_metadata_json TEXT, -- Outlier/Bias context
             FOREIGN KEY (driver_id) REFERENCES drivers (driver_id)
         )
     """)
-
-    # Create Telemetry Table (Individual Rows)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS telemetry_points (
             point_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -66,9 +53,25 @@ def init_db():
         )
     """)
 
+    def try_add_column(table, column, definition):
+        try:
+            cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+        except sqlite3.OperationalError:
+            pass # Already exists
+
+    try_add_column("drivers", "smoothness_avg", "REAL DEFAULT 0")
+    try_add_column("drivers", "safety_avg", "REAL DEFAULT 0")
+    try_add_column("drivers", "overall_avg", "REAL DEFAULT 0")
+    try_add_column("drivers", "trip_count", "INTEGER DEFAULT 0")
+    try_add_column("drivers", "explanation_json", "TEXT")
+    try_add_column("drivers", "fairness_metadata_json", "TEXT")
+    
+    try_add_column("trips", "explanation_json", "TEXT")
+    try_add_column("trips", "fairness_metadata_json", "TEXT")
+
     conn.commit()
     conn.close()
-    print(f"✅ Database {DB_NAME} initialized.")
+    print(f"✅ Database {DB_NAME} initialized and migrated.")
 
 def generate_telemetry(style="smooth", duration_minutes=30):
     """

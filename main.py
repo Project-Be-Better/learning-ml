@@ -7,7 +7,7 @@ from scoring import ScoringService
 
 app = FastAPI(title="ExploreSG ML Scoring Service")
 service = ScoringService()
-DB_NAME = "telemetry_v3.db"
+DB_NAME = "telemetry.db"
 
 class TelemetryPoint(BaseModel):
     timestamp: str

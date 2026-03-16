@@ -5,7 +5,7 @@ import sqlite3
 import numpy as np
 import json
 
-DB_NAME = "telemetry_v3.db"
+DB_NAME = "telemetry.db"
 
 class FairnessAnalyzer:
     def __init__(self):

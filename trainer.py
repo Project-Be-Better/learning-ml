@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, r2_score
 import joblib
 
-DB_NAME = "telemetry_v3.db"
+DB_NAME = "telemetry.db"
 MODEL_PATH = "smoothness_model.joblib"
 
 def generate_labels(df):
