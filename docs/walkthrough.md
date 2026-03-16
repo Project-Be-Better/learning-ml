@@ -49,7 +49,8 @@ We extract features that represent the "physics" of driving:
 ### 5. The Behavior (Scoring) Agent (`behavior_agent.py`)
 This is the "Human Layer" of our AI.
 - **Narrative Translation**: Instead of showing just JSON, the **Behavior Agent** fetches the persisted XAI and Fairness data and uses an LLM (or heuristic logic in MVP) to produce a **Coaching Narrative**.
-- **UX**: The driver sees: *"Great job! You are outperforming your cohort by 20 points because of your smooth braking."*
+- **Feature Filtering**: It intelligently filters out non-behavioral metadata like `base_value` to focus purely on actionable telemetry features (Consistency, Smoothness, etc.).
+- **Professional UX**: The driver receives professional feedback, such as: *"Based on your recent trips, you are outperforming your age cohort by 29.86 points. This strong performance is primarily driven by your excellent driving consistency."*
 
 ## 🧪 Verification & Results
 

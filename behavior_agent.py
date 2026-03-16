@@ -51,17 +51,27 @@ class BehaviorAgent:
         # Task: Generate a supportive, professional coaching sentence.
         # """
         
-        # HEURISTIC MOCK (Representing what the LLM would output)
-        xai = data['xai']
-        fairness = data['fairness']
+        # 1. Feature Analysis (XAI)
+        # Filter out metadata like 'base_value' which isn't a driver behavior
+        ignored_features = {"base_value"}
+        feature_impacts = {
+            k: v for k, v in xai.items() 
+            if k not in ignored_features and isinstance(v, (int, float))
+        }
         
-        top_feature = max(xai, key=lambda k: xai[k] if isinstance(xai[k], (int, float)) else 0) if xai else "consistency"
-        perf_status = "outperforming" if fairness.get('diff', 0) > 0 else "trailing"
+        # Identify top positive impact feature
+        top_feature = max(feature_impacts, key=feature_impacts.get) if feature_impacts else "consistency"
         
+        # 2. Cohort Analysis (Fairness)
+        diff = fairness.get('diff', 0)
+        perf_status = "outperforming" if diff > 0 else "trailing"
+        
+        # 3. Generate Professional Narrative
+        # This acts as the 'Coaching Note' for the dashboard
         narrative = (
-            f"Hello {data['name']}! Based on your recent trips, you are {perf_status} "
-            f"your cohort by {abs(fairness.get('diff', 0))} points. "
-            f"Your high score is primarily driven by your excellent {top_feature.replace('_', ' ')}."
+            f"Hello {data['name']}! Based on your recent trips, you are {perf_status} your "
+            f"age cohort by {abs(diff):.2f} points. This strong performance is primarily "
+            f"driven by your excellent {top_feature.replace('_', ' ')}."
         )
         
         return narrative
