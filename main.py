@@ -3,13 +3,13 @@ from pydantic import BaseModel
 from typing import List
 import sqlite3
 import json
-from scoring import ScoringService
-from behavior_agent import BehaviorAgent
+from src.core.scoring import ScoringService
+from src.agents.behavior_agent import BehaviorAgent
+from src.core.config import DB_NAME
 
 app = FastAPI(title="ExploreSG ML Scoring Service")
 service = ScoringService()
 behavior_agent = BehaviorAgent()
-DB_NAME = "telemetry.db"
 
 class TelemetryPoint(BaseModel):
     timestamp: str
