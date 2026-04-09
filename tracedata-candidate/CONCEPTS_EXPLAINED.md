@@ -71,13 +71,30 @@ Computer predicts: Smoothness ≈ 86 ✅
 
 ### Imagine: Deciding if a driver is smooth
 
-**Option 1: One Expert**
-```
-Expert looks at driver behavior: "I think smoothness = 87"
-You: "But what if you're wrong?"
+**This is XGBoost - 200 Experts Voting!**
+
+```mermaid
+graph LR
+    subgraph EXPERTS["200 Expert Voters"]
+        E1["Tree 1<br/>jerk expert"]
+        E2["Tree 2<br/>brake expert"]
+        E3["Tree 3<br/>speed expert"]
+        E4["..."]
+        E200["Tree 200"]
+    end
+    
+    INPUT["Driver Data<br/>jerk, brakes,<br/>speed, RPM..."] --> EXPERTS
+    
+    EXPERTS --> VOTE["🗳️ All Vote"]
+    VOTE --> AVG["📊 Average Votes"]
+    AVG --> PREDICT["Smoothness = 87"]
+    
+    style PREDICT fill:#c8e6c9
+    style VOTE fill:#fff3e0
+    style AVG fill:#fff3e0
 ```
 
-**Option 2: Committee of Experts (This is XGBoost!)**
+**How it works:**
 ```
 Expert 1: "I studied the jerk data. I think smoothness = 85"
 Expert 2: "I studied the braking data. I think smoothness = 91"
@@ -226,41 +243,49 @@ RMSE = 12 means: "On average off by 12 points out of 100"
         ✅ Pretty good!
 ```
 
+## 💻 The System Architecture: 3 Main Components
+
+```mermaid
+graph TB
+    subgraph DATA["📊 DATA GENERATOR"]
+        D1["Smooth<br/>35%"]
+        D2["Normal<br/>40%"]
+        D3["Jerky<br/>15%"]
+        D4["Unsafe<br/>10%"]
+    end
+    
+    subgraph ENGINE["🤖 ML ENGINE"]
+        E1["Parse<br/>Telematics"]
+        E2["Extract<br/>18 Features"]
+        E3["Train<br/>XGBoost"]
+        E4["Predict<br/>Smoothness"]
+    end
+    
+    subgraph TRACK["📈 EXPERIMENT TRACK"]
+        T1["MLFlow"]
+        T2["Metrics"]
+        T3["Artifacts"]
+    end
+    
+    DATA --> ENGINE
+    ENGINE --> TRACK
+    TRACK --> OUTPUT["✅ Results"]
+    
+    style DATA fill:#f3e5f5
+    style ENGINE fill:#fff3e0
+    style TRACK fill:#c8e6c9
+    style OUTPUT fill:#e8f5e9
+```
+
+### What Each Component Does
+
+**Data Generator:** Creates 300 realistic synthetic driving trips with 4 different driver styles
+
+**ML Engine:** Takes the trips, extracts 18 features, trains XGBoost model, makes predictions
+
+**Experiment Tracker:** Records all results in MLFlow so you can see what worked
+
 ---
-
-## 💻 The 3-Part System
-
-### Part 1: Data Generator
-```
-┌─────────────────────────┐
-│ Simulates 4 driver      │
-│ types driving trips    │
-│                         │
-│ Output:                 │
-│ 300 trips               │
-│ with measurements       │
-└────────┬────────────────┘
-         ↓
-        CSV file (data/synthetic_data.csv)
-```
-
-### Part 2: ML Engine
-```
-┌─────────────────────────┐
-│ Takes measurements      │
-│ Trains XGBoost model    │
-│ Makes predictions       │
-│ Explains results (SHAP) │
-└────────┬────────────────┘
-         ↓
-        Trained model (models/smoothness_model.joblib)
-```
-
-### Part 3: Orchestrator
-```
-┌─────────────────────────┐
-│ Runs everything!        │
-│ • Generates data        │
 │ • Trains model          │
 │ • Evaluates             │
 │ • Logs results          │

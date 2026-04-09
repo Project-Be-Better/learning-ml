@@ -4,29 +4,31 @@
 
 ---
 
-## 🗺️ Quick Navigation Map
+## 🗺️ Learning Paths (Choose Your Adventure!)
 
-```
-START HERE
-    ↓
-┌─────────────────────────────────────┐
-│ README.md                           │
-│ (Main hub, big picture)             │
-└──────────────┬──────────────────────┘
-               ↓
-        Choose your path:
-    ┌───────────────────┐
-    │                   │
-    ↓                   ↓
-NEWCOMER             PRACTITIONER
-    ↓                   ↓
-GETTING_STARTED      docs/MLOPS_GUIDE
-    ↓                   ↓
-Run and see         Configure & tune
-    ↓                   ↓
-View results        Run training
-    ↓                   ↓
-View docs           Compare results
+```mermaid
+graph LR
+    START["🎯 START HERE"] --> README["README.md<br/>5 min"]
+    README --> QUICK["QUICK_REFERENCE.md<br/>5 min"]
+    QUICK --> CHOOSE{{"Choose Your Path"}}
+    
+    CHOOSE -->|Fast Track<br/>15 min| FAST["Run &amp; See<br/>Results"]
+    CHOOSE -->|Learning<br/>1.5 hours| LEARN["Concepts +<br/>Architecture"]
+    CHOOSE -->|Deep Dive<br/>4+ hours| DEEP["All Docs +<br/>Read Code"]
+    
+    FAST --> RUN["python -m src.mlops.training_pipeline"]
+    LEARN --> RUN
+    DEEP --> RUN
+    
+    RUN --> DONE["✅ You Have ML Skills!"]
+    
+    style START fill:#fff9c4
+    style DONE fill:#c8e6c9
+    style CHOOSE fill:#fff3e0
+    style README fill:#f3e5f5
+    style FAST fill:#f3e5f5
+    style LEARN fill:#f3e5f5
+    style DEEP fill:#f3e5f5
 ```
 
 ---

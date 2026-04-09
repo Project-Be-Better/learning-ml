@@ -14,61 +14,36 @@ Since you don't have real telematics data, we use synthetic data generation that
 
 ---
 
-## Architecture
+## Architecture (Visual)
 
+```mermaid
+graph TD
+    CONFIG["⚙️ MLOps Configuration<br/>mlops_config.yaml"]
+    
+    CONFIG --> DATAGEN["📊 Data Generation<br/>4 Driver Profiles"]
+    DATAGEN --> SPLIT["✂️ Data Splits<br/>60% Train / 20% Val / 20% Test"]
+    SPLIT --> TRAIN["🧠 Model Training<br/>XGBoost + Early Stopping"]
+    TRAIN --> EVAL["📈 Evaluation<br/>R², RMSE, MAE, CV"]
+    EVAL --> GATE{"⚔️ Quality Gate<br/>R² ≥ 0.85?"}
+    GATE -->|PASS| SAVE["💾 Save Model"]
+    GATE -->|FAIL| REVIEW["🔍 Review & Adjust"]
+    SAVE --> MLFLOW["📉 MLFlow Logging<br/>Metrics, Artifacts, Params"]
+    REVIEW --> MLFLOW
+    MLFLOW --> REGISTRY["🏆 Model Registry<br/>Version Tracking"]
+    
+    style CONFIG fill:#fff3e0
+    style DATAGEN fill:#f3e5f5
+    style SPLIT fill:#f3e5f5
+    style TRAIN fill:#fff3e0
+    style EVAL fill:#b3e5fc
+    style GATE fill:#ffccbc
+    style SAVE fill:#c8e6c9
+    style REVIEW fill:#ffccbc
+    style MLFLOW fill:#e1bee7
+    style REGISTRY fill:#a5d6a7
 ```
-┌─────────────────────────────────────┐
-│  MLOps Configuration (YAML)         │
-│  • Model hyperparameters            │
-│  • Experiment settings              │
-│  • Data generation config           │
-│  • Reproducibility seeds            │
-└────────────┬────────────────────────┘
-             ↓
-┌─────────────────────────────────────┐
-│  Synthetic Data Generation          │
-│  • Driver profiles (smooth→unsafe)  │
-│  • Telematics windows (10-min)      │
-│  • 18 aggregated features           │
-└────────────┬────────────────────────┘
-             ↓
-┌─────────────────────────────────────┐
-│  Data Splits                        │
-│  • Train: 60% (vehicle dev)         │
-│  • Val:   20%                       │
-│  • Test:  20%                       │
-└────────────┬────────────────────────┘
-             ↓
-┌─────────────────────────────────────┐
-│  Model Training with MLFlow         │
-│  • XGBoost (18 features)            │
-│  • Cross-validation (5-fold)        │
-│  • Early stopping on validation     │
-└────────────┬────────────────────────┘
-             ↓
-┌─────────────────────────────────────┐
-│  Evaluation & Metrics               │
-│  • R², RMSE, MAE on test            │
-│  • CV scores for stability          │
-│  • Quality gate (R² ≥ 0.85)         │
-└────────────┬────────────────────────┘
-             ↓
-┌─────────────────────────────────────┐
-│  MLFlow Logging                     │
-│  • Model artifact                   │
-│  • Metrics (train/val/test)         │
-│  • Hyperparameters                  │
-│  • Feature importance               │
-│  • Metadata                         │
-└────────────┬────────────────────────┘
-             ↓
-┌─────────────────────────────────────┐
-│  Model Registry                     │
-│  • Save best model                  │
-│  • Version tracking                 │
-│  • Run comparison                   │
-└────────────────────────────────────┘
-```
+
+**The complete MLOps workflow:** Configuration → Data → Training → Evaluation → Quality Gate → Logging → Registry
 
 ---
 

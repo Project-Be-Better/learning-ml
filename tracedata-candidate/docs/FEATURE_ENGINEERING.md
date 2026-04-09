@@ -4,9 +4,50 @@
 
 The smoothness ML engine now uses **18 comprehensive telematics features** across 5 dimensions to accurately predict driver smoothness and safety.
 
-## Feature Categories
+## All 18 Features (Visual Overview)
 
-### 1. LONGITUDINAL ACCELERATION (5 features)
+```mermaid
+graph TB
+    FEATURES["🎯 18 Smoothness Features"]
+    
+    FEATURES --> L["🔴 LONGITUDINAL<br/>Acceleration & Braking"]
+    FEATURES --> LA["🟡 LATERAL<br/>Turning & Cornering"]
+    FEATURES --> S["🟢 SPEED<br/>Velocity Control"]
+    FEATURES --> J["🔵 JERK<br/>Change Rates"]
+    FEATURES --> E["🟣 ENGINE<br/>RPM & Efficiency"]
+    
+    L --> L1["mean_accel_g"]
+    L --> L2["max_decel_g"]
+    L --> L3["harsh_brakes"]
+    L --> L4["harsh_accels"]
+    L --> L5["accel_std"]
+    
+    LA --> LA1["mean_lateral_g"]
+    LA --> LA2["max_lateral_g"]
+    LA --> LA3["harsh_corners"]
+    
+    S --> S1["mean_speed_kmh"]
+    S --> S2["speed_std"]
+    S --> S3["max_speed_kmh"]
+    
+    J --> J1["avg_jerk"]
+    J --> J2["max_jerk"]
+    J --> J3["jerk_std"]
+    
+    E --> E1["mean_rpm"]
+    E --> E2["max_rpm"]
+    E --> E3["over_revs"]
+    E --> E4["idle_seconds"]
+    
+    style FEATURES fill:#fff9c4
+    style L fill:#ffccbc
+    style LA fill:#ffd54f
+    style S fill:#b2dfdb
+    style J fill:#b3e5fc
+    style E fill:#e1bee7
+```
+
+## Feature Categories (Detailed)
 Controls how smoothly the driver accelerates and brakes.
 
 | Feature | Unit | Range | Ideal | Penalty |

@@ -27,7 +27,10 @@ This project uses **machine learning** to:
 3. **[Data Guide](docs/FEATURE_ENGINEERING.md)** - What data we use and why
 4. **[ML Pipeline](docs/MLOPS_GUIDE.md)** - How to train the model
 5. **[Understanding Results](docs/SHAP_EXPLAINABILITY.md)** - Read the predictions
-6. **[Code Structure](#-code-structure)** - File organization
+6. **[Visual Guide](VISUAL_ENHANCEMENTS.md)** - See all diagrams explained ✨ NEW!
+7. **[Code Structure](#-code-structure)** - File organization
+
+💡 **All documentation includes helpful Mermaid diagrams for visual learning!**
 
 ---
 
@@ -56,6 +59,26 @@ mlflow ui
 - Shows you the results in a nice web interface
 
 **Expected time:** ~2-3 minutes
+
+### How It All Works (The Data Flow)
+
+```mermaid
+graph LR
+    A["📱 Device Telematics"] -->|10-min windows| B["📊 Parse Features"]
+    B -->|18 features| C["🎯 Aggregate Trip"]
+    C -->|Trip Features| D["🤖 ML Model"]
+    D -->|Score 0-100| E["📈 Smoothness Prediction"]
+    E -->|Why?| F["🔍 SHAP Explanation"]
+    F -->|Drivers Ranked| G["✅ Output Results"]
+    
+    style A fill:#e1f5ff
+    style B fill:#f3e5f5
+    style C fill:#f3e5f5
+    style D fill:#fff3e0
+    style E fill:#e8f5e9
+    style F fill:#fce4ec
+    style G fill:#c8e6c9
+```
 
 ---
 
@@ -141,12 +164,24 @@ After training, test the model: "How good is it at predicting smoothness?" Measu
 ### Simple Definition
 "How comfortable is it to be a passenger in this driver's car?"
 
-### How We Measure It (0-100):
-- **90-100**: Smooth driver (professional)
-- **75-89**: Good driver (mostly smooth)
-- **60-74**: Average driver (some rough moments)
-- **40-59**: Poor driver (many harsh moments)
-- **<40**: Dangerous driver (very aggressive)
+### Smoothness Score Scale (Visual)
+
+```mermaid
+graph LR
+    SCALE["Smoothness Score (0-100)"]
+    
+    SCALE --> EXCELLENT["90-100<br/>🟢 EXCELLENT<br/>Professional Driver"]
+    SCALE --> GOOD["75-89<br/>🟢 GOOD<br/>Smooth Driver"]
+    SCALE --> AVERAGE["60-74<br/>🟡 AVERAGE<br/>Normal Driver"]
+    SCALE --> POOR["40-59<br/>🟠 POOR<br/>Aggressive Driver"]
+    SCALE --> UNSAFE["0-39<br/>🔴 UNSAFE<br/>Dangerous Driver"]
+    
+    style EXCELLENT fill:#c8e6c9
+    style GOOD fill:#a5d6a7
+    style AVERAGE fill:#fff9c4
+    style POOR fill:#ffcc80
+    style UNSAFE fill:#ffccbc
+```
 
 ### What Affects Smoothness?
 

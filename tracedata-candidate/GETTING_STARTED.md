@@ -14,6 +14,22 @@ By the end of this guide, you'll have:
 
 **Time needed:** ~30 minutes
 
+### Your Learning Journey Today
+
+```mermaid
+graph LR
+    A["📖 Read This<br/>Guide"] --> B["🔧 Install<br/>Packages"]
+    B --> C["▶️ Run<br/>Training"]
+    C --> D["📊 View<br/>Results"]
+    D --> E["🎉 Understand<br/>ML!"]
+    
+    style A fill:#fff3e0
+    style E fill:#c8e6c9
+    style B fill:#f3e5f5
+    style C fill:#fff3e0
+    style D fill:#b3e5fc
+```
+
 ---
 
 ## 🎯 Prerequisites (What You Need)

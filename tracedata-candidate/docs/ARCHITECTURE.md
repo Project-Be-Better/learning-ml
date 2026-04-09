@@ -412,32 +412,31 @@ Good target: < 15
 
 ---
 
-## 🔄 The Training Loop (Complete)
+## 🔄 The Training Loop (Visual)
 
+```mermaid
+graph TD
+    A["🎓 Training Phase"] --> B["Generate Data<br/>300 Synthetic Trips"]
+    B --> C["Split Data<br/>60% Train / 20% Val / 20% Test"]
+    C --> D["Train Model<br/>XGBoost 200 Trees"]
+    D --> E["Evaluate<br/>R², RMSE, MAE"]
+    E --> F{"Quality Gate<br/>R² ≥ 0.85?"}
+    F -->|YES| G["✅ Save Model"]
+    F -->|NO| H["⚠️ Review Results"]
+    G --> I["Log to MLFlow"]
+    H --> I
+    I --> J["🎯 Ready for Production"]
+    
+    style A fill:#fff3e0
+    style J fill:#c8e6c9
+    style F fill:#ffccbc
+    style G fill:#c8e6c9
+    style H fill:#ffccbc
 ```
-ITERATION 1 (First Run)
-├─ Hyperparameters: n_estimators=200, max_depth=7, lr=0.05
-├─ Data: 300 synthetic trips
-├─ Result: R² = 0.88 ✅
-├─ Saved: YES (passes quality gate)
-└─ MLFlow: Run ID abc123...
 
-ITERATION 2 (If You Change Settings)
-├─ Hyperparameters: n_estimators=250, max_depth=8, lr=0.04
-├─ Data: Same 300 trips
-├─ Result: R² = 0.87 (slightly worse)
-├─ Saved: NO (you can still review)
-└─ MLFlow: Run ID def456...
-  └─ Compare: Run 1 was better!
+**How Iteration Works:**
 
-ITERATION 3 (Another Try)
-├─ Hyperparameters: n_estimators=300, max_depth=7, lr=0.03
-├─ Data: Same 300 trips
-├─ Result: R² = 0.89 ✅ (better!)
-├─ Saved: YES (new best!)
-└─ MLFlow: Run ID ghi789...
-  └─ Now: This is your best model!
-```
+Each time you run training, you go through this loop. If quality gate passes (R² ≥ 0.85), the model is saved. If not, review settings and try again. All attempts logged to MLFlow so you can compare!
 
 ---
 
