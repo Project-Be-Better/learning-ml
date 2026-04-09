@@ -1,0 +1,217 @@
+# ============================================================================
+# MLOps Configuration - Experiment, Model, and Synthetic Data Management
+# ============================================================================
+
+# MLFlow Configuration
+mlflow:
+  # Tracking server (local filesystem)
+  tracking_uri: "file:///./mlruns"
+  # Experiment name
+  experiment_name: "smoothness-scoring-production"
+  # Whether to use local backend (no server required)
+  backend_store_uri: "sqlite:///./mlflow.db"
+  # Include model as artifact
+  log_model: true
+
+# Model Configuration
+model:
+  # Model parameters
+  xgboost:
+    n_estimators: 200          # Increased for better accuracy
+    learning_rate: 0.05        # Lower for stability
+    max_depth: 7               # Slightly deeper for interactions
+    subsample: 0.8             # Prevent overfitting
+    colsample_bytree: 0.8      # Feature subsampling
+    min_child_weight: 1
+    gamma: 0                   # No pruning threshold
+    objective: "reg:squarederror"
+    random_state: 42           # Reproducibility
+  
+  # Model quality gate (minimum acceptable R²)
+  quality_gate:
+    min_r2_score: 0.85
+    min_rmse: 15.0
+  
+  # Train/test split
+  train_test_split: 0.8
+  cv_folds: 5                  # 5-fold cross-validation
+
+# Synthetic Data Generation Configuration
+data:
+  # Random seed for reproducibility
+  random_seed: 42
+  
+  # Data generation strategy
+  generation:
+    # Driver profiles to simulate different behaviors
+    drivers_to_simulate: 20              # Number of synthetic drivers
+    trips_per_driver: 15                 # Trips per driver
+    trip_duration_minutes:
+      min: 20
+      max: 180
+    
+    # Distribution of driver styles
+    driver_styles:
+      smooth: 0.35          # 35% excellent drivers
+      normal: 0.40          # 40% average drivers
+      jerky: 0.15           # 15% poor drivers
+      unsafe: 0.10          # 10% dangerous drivers
+  
+  # Telematics window configuration
+  telematics_window:
+    window_seconds: 600       # 10 minutes per window
+    sample_rate_hz: 1         # 1 sample per second
+    samples_per_window: 600   # 600 samples = 10 minutes
+  
+  # Feature scaling (normalization)
+  feature_scaling:
+    method: "standardize"     # standardize or minmax
+    fit_on_split: "train"     # Fit scaler on train data only
+
+# Experiment Tracking Configuration
+experiment:
+  # Metrics to track
+  metrics:
+    - mae           # Mean Absolute Error
+    - rmse          # Root Mean Squared Error
+    - r2_score      # R² / coefficient of determination
+    - median_ae     # Median Absolute Error
+  
+  # Parameters to log
+  parameters:
+    - model_type
+    - n_estimators
+    - learning_rate
+    - max_depth
+    - train_size
+    - test_size
+    - cv_folds
+    - num_features
+    - data_seed
+  
+  # Artifacts to save
+  artifacts:
+    - model (joblib)
+    - feature_importance (json)
+    - training_data_stats (json)
+    - cv_results (json)
+    - predictions_sample (csv)
+
+# Cross-Validation Configuration
+cross_validation:
+  enabled: true
+  n_splits: 5
+  shuffle: true
+  random_state: 42
+  stratify: false              # Can't stratify regression
+
+# Evaluation Configuration
+evaluation:
+  # Test set evaluation
+  compute_test_metrics: true
+  
+  # Per-sample predictions
+  save_predictions: true
+  predictions_sample_size: 100  # Save predictions for analysis
+  
+  # Feature importance analysis
+  compute_feature_importance: true
+  top_n_features: 10
+  
+  # SHAP analysis (can be slow)
+  compute_shap_values: false    # Enable after model converges
+  shap_sample_size: 50
+
+# Logging Configuration
+logging:
+  level: "INFO"               # DEBUG, INFO, WARNING, ERROR
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "./logs/mlops.log"
+
+# Reproducibility Configuration
+reproducibility:
+  # Set random seeds everywhere
+  set_seeds: true
+  numpy_seed: 42
+  random_seed: 42
+  tf_seed: 42                 # If using TensorFlow
+  sklearn_seed: 42
+  
+  # Track data versions
+  data_version: "v1.0-synthetic"
+  code_version: "auto"        # Auto-detect from git
+
+# Output Configuration
+output:
+  # Where to save models
+  model_dir: "./models"
+  model_name: "smoothness_model"
+  
+  # Where to save reports
+  reports_dir: "./reports"
+  
+  # Where to save datasets
+  data_dir: "./data"
+  
+  # Naming convention for experiments
+  experiment_name_template: "{model_type}__{data_version}__{timestamp}"
+
+# Development/Production Flags
+environment:
+  env: "development"              # development or production
+  debug_mode: false
+  
+  # Synthetic data configuration for DEV
+  dev:
+    num_drivers: 20
+    trips_per_driver: 15
+    test_size: 0.2
+    quick_mode: false              # Skip expensive computations
+  
+  # Production settings
+  prod:
+    num_drivers: 100
+    trips_per_driver: 50
+    test_size: 0.15
+    quick_mode: false
+
+# Data Quality Checks
+data_quality:
+  # Check for missing values
+  max_missing_percent: 5
+  
+  # Check for outliers (using IQR method)
+  remove_outliers: false
+  outlier_iqr_multiplier: 3.0
+  
+  # Feature value ranges (for validation)
+  feature_ranges:
+    avg_accel_g: [0.0, 1.0]
+    avg_accel_std: [0.0, 0.8]
+    max_decel_g: [0.0, 1.0]
+    total_harsh_brakes: [0, 50]
+    total_harsh_accels: [0, 30]
+    avg_lateral_g: [0.0, 0.5]
+    max_lateral_g: [0.0, 0.8]
+    total_harsh_corners: [0, 20]
+    avg_speed_kmh: [0, 150]
+    avg_speed_std: [0, 30]
+    max_speed_kmh: [0, 180]
+    avg_jerk: [0.0, 0.1]
+    avg_jerk_std: [0.0, 0.05]
+    max_jerk: [0.0, 0.2]
+    avg_rpm: [0, 6000]
+    max_rpm: [0, 7000]
+    total_idle_seconds: [0, 900]
+    total_over_revs: [0, 50]
+
+# Monitoring Configuration (for deployed models)
+monitoring:
+  # Track model performance over time
+  enabled: true
+  
+  # Alert thresholds
+  alerts:
+    metric_degradation_threshold: 0.05  # 5% drop = alert
+    drift_detection_enabled: true       # Detect covariate shift
+    prediction_drift_threshold: 0.10    # 10% shift = alert
