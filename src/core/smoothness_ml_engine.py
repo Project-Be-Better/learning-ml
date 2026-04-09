@@ -460,84 +460,65 @@ def aggregate_trip_samples(events: List[Dict]) -> Dict[str, float]:
 
 def generate_synthetic_labels(df: pd.DataFrame) -> np.ndarray:
     """
-    Generate synthetic smoothness labels using comprehensive telematics features.
+    Generate reward-based smoothness scores (0-100).
 
-    Uses physics-driven heuristics weighted by feature importance for smooth driving.
+    PHILOSOPHY: Reward smooth driving behaviors. Baseline 50 represents normal/average
+    driving. Score increases with evidence of smooth, efficient operation.
 
-    SCORING COMPONENTS:
+    SCORING SYSTEM:
 
-        BASE SCORE: 90 (excellent driver baseline)
+        BASELINE: 50 (neutral/normal driving)
 
-        LONGITUDINAL PENALTIES (smooth accelerating/braking):
-            - Jerk: 0.008 × 300 pts (smooth transitions)
-            - Accel variance: 0.10 × 200 pts (consistent pressure)
-            - Max deceleration: 0.3g × 50 pts (peaks severity)
-            - Harsh brakes: 5 pts each (sudden stops)
-            - Harsh accels: 4 pts each (aggressive starts)
+        REWARDS for smooth behaviors (+points):
+            ✓ Low jerk (< 0.008)              +8 pts
+            ✓ Smooth acceleration (std < 0.10) +6 pts
+            ✓ Gentle braking (< 0.3g)         +5 pts
+            ✓ No harsh brakes (count = 0)     +3 pts
+            ✓ No harsh accels (count = 0)     +3 pts
+            ✓ Minimal lateral forces (< 0.02g) +4 pts
+            ✓ No harsh corners (count = 0)    +3 pts
+            ✓ Consistent speed (std < 8 km/h) +6 pts
+            ✓ Controlled speed (max < 95 km/h) +4 pts
+            ✓ Efficient RPM (< 2000 avg)      +5 pts
+            ✓ No over-revving (count = 0)     +3 pts
+            ✓ Minimal idling (< 50s per 600s) +3 pts
 
-        LATERAL PENALTIES (smooth turning):
-            - Lateral G: 0.02 × 150 pts (cornering force)
-            - Max lateral: 0.15 × 100 pts (extreme turns)
-            - Harsh corners: 3 pts each (tight swerves)
+        Range: 0–100
+            90+  : Excellent → Eligible for rewards/bonuses
+            70–89: Good      → Solid driving
+            50–69: Average   → Normal operation, room to improve
+            <50  : Poor      → Aggressive driving (not rewarded)
 
-        SPEED PENALTIES (controlled consistency):
-            - Speed std dev: 10 km/h × 30 pts (erratic speed)
-            - Max speed excess: (max-80) × 0.5 pts (too fast)
-
-        ENGINE PENALTIES (efficient operation):
-            - RPM variance: 500 rpm × 20 pts (inconsistent shifting)
-            - Over-revving: 15 pts each (engine abuse)
-            - Idle time ratio: (idle/600) × 10 pts (excessive idling)
-
-    FORMULA:
-        score = 90
-              - (avg_jerk × 300)
-              - (avg_accel_std × 200)
-              - (max_decel_g × 50)
-              - (total_harsh_brakes × 5)
-              - (total_harsh_accels × 4)
-              - (avg_lateral_g × 150)
-              - (max_lateral_g × 100)
-              - (total_harsh_corners × 3)
-              - (avg_speed_std × 30)
-              - (max(0, max_speed_kmh - 80) × 0.5)
-              - (total_over_revs × 15)
-              - (total_idle_seconds / 600 × 10)
-        score += noise(μ=0, σ=2)
-        score = clip(score, 0, 100)
-
-    INTERPRETATION:
-        90+ : Excellent smooth driving
-        75-89: Good smooth driving
-        60-74: Average safe driving
-        <60 : Poor/aggressive driving
+    REWARD CALCULATION:
+        Each criterion earns points by how well it meets the smooth driving threshold.
+        Multiple good behaviors stack additively (cumulative reward).
     """
-    score = 90.0
+    score = 50.0  # Baseline: neutral/normal driving
 
-    # Longitudinal smoothness (most important)
-    score -= df["avg_jerk"] * 300  # Jerk penalty
-    score -= df["avg_accel_std"] * 200  # Acceleration consistency
-    score -= df["max_decel_g"] * 50  # Peak deceleration severity
-    score -= df["total_harsh_brakes"] * 5  # Harsh braking events
-    score -= df["total_harsh_accels"] * 4  # Harsh acceleration events
+    # Longitudinal smoothness (most important for safety)
+    score += np.where(df["avg_jerk"] < 0.008, 8, 0)  # Low jerk
+    score += np.where(df["avg_accel_std"] < 0.10, 6, 0)  # Smooth acceleration
+    score += np.where(df["max_decel_g"] < 0.3, 5, 0)  # Gentle braking
+    score += np.where(df["total_harsh_brakes"] == 0, 3, 0)  # No harsh braking
+    score += np.where(df["total_harsh_accels"] == 0, 3, 0)  # No harsh acceleration
 
-    # Lateral smoothness (cornering)
-    score -= df["avg_lateral_g"] * 150  # Average cornering force
-    score -= df["max_lateral_g"] * 100  # Max cornering force
-    score -= df["total_harsh_corners"] * 3  # Harsh corner events
+    # Lateral smoothness (cornering - important for vehicle stability)
+    score += np.where(df["avg_lateral_g"] < 0.02, 4, 0)  # Minimal lateral forces
+    score += np.where(df["total_harsh_corners"] == 0, 3, 0)  # No harsh corners
 
-    # Speed consistency
-    score -= df["avg_speed_std"] * 30  # Speed variability penalty
-    score -= np.maximum(0, df["max_speed_kmh"] - 80) * 0.5  # Excessive speed
+    # Speed consistency (predictable driving)
+    score += np.where(df["avg_speed_std"] < 8.0, 6, 0)  # Consistent speed
+    score += np.where(df["max_speed_kmh"] < 95, 4, 0)  # Controlled speed
 
-    # Engine efficiency
-    score -= df["total_over_revs"] * 15  # Over-revving penalty
-    score -= (df["total_idle_seconds"] / 600) * 10  # Excessive idling
+    # Engine efficiency (vehicle wear and fuel economy)
+    score += np.where(df["avg_rpm"] < 2000, 5, 0)  # Efficient RPM
+    score += np.where(df["total_over_revs"] == 0, 3, 0)  # No over-revving
+    score += np.where(df["total_idle_seconds"] < 50, 3, 0)  # Minimal idling
 
-    # Add realism: small random noise
-    score += np.random.normal(0, 2, len(df))
+    # Add small realistic variation (±5 pts)
+    score += np.random.normal(0, 2.5, len(df))
 
-    # Clip to valid range
+    # Clip to valid range [0, 100]
     return np.clip(score, 0, 100)
 
 

@@ -1,16 +1,23 @@
-# Complete MLOps Setup Guide
+# Complete MLOps Setup Guide - Reward-Based Smoothness Scoring
 
 ## Overview
 
-Your project now has a **production-ready MLOps pipeline** with:
+Your project now has a **production-ready MLOps pipeline** for **reward-based driver scoring** (0-100 baseline 50) with:
 - ✅ Reproducible synthetic data generation
+- ✅ Reward-based label generation (incentivizes good behavior)
 - ✅ MLFlow experiment tracking
 - ✅ Automated training pipeline
 - ✅ Cross-validation strategy
 - ✅ Model versioning & registry
 - ✅ Complete metrics tracking
 
-Since you don't have real telematics data, we use synthetic data generation that simulates realistic driving behaviors.
+The system generates realistic synthetic driving behaviors from 4 driver profiles and trains an XGBoost model to predict **reward scores** that encourage and recognize safe, smooth driving.
+
+**Score Interpretation:**
+- **90+** = Excellent (eligible for incentives/bonuses)
+- **70–89** = Good (solid driving)
+- **50–69** = Average (normal operation, room for improvement)
+- **<50** = Poor (aggressive driving, not rewarded)
 
 ---
 

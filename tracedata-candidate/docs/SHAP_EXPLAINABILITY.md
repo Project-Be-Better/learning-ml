@@ -1,8 +1,16 @@
-# SHAP Explainability Guide - Smoothness ML Engine
+# SHAP Explainability Guide - Reward-Based Smoothness Scoring
 
 ## Overview
 
-This guide explains how to use SHAP (SHapley Additive exPlanations) to understand and interpret smoothness scores.
+This guide explains how to use SHAP (SHapley Additive exPlanations) to interpret **reward-based smoothness scores** that encourage and recognize safe, smooth driving.
+
+## Reward-Based Scoring Philosophy
+
+The smoothness score is a **reward metric** (0-100) where:
+- **50** = Normal/average driving (neutral baseline)
+- **70–89** = Good driving (solid performance)
+- **90+** = Excellent driving (eligible for bonuses/incentives)
+- **<50** = Aggressive driving (not rewarded)
 
 ## Quick Start
 
@@ -15,39 +23,38 @@ engine = ExplainableScoringEngine()
 # Score a trip with explanations
 result = engine.score_trip_from_samples_with_explanation(trip_events)
 
-# Get human-readable explanation
+# Get human-readable explanation with behavioral insights
 print(result['smoothness_explanation']['explanation_text'])
 ```
 
 ## What is SHAP?
 
-SHAP provides a mathematically consistent way to explain predictions by:
+SHAP provides a mathematically consistent way to explain reward predictions by:
 1. **Breaking down each prediction** into contributions from each feature
-2. **Assigning each feature a "contribution" value** (positive = helps score, negative = hurts score)
-3. **Starting from a baseline** (model's average prediction) and adding feature contributions
+2. **Assigning each feature a "reward contribution"** (positive = earns points, negative = loses opportunity)
+3. **Starting from baseline 50** (normal driving) and adding feature contributions
 
 ### Formula
 
 ```
-Prediction = Base Value + Feature1_Contribution + Feature2_Contribution + ...
+Reward Score = Base (50) + Feature1_Contribution + Feature2_Contribution + ...
 ```
 
-Example:
+**Example - Good Driver:**
 ```
-87.5 = 75.0 + 8.5 + 4.0 + (-5.0)
-      Base   Jerk  Accel  Brakes
+78 = 50 + 8 (low jerk) + 6 (smooth acceleration) + 3 (no harsh braking) + 3 (no over-revving) + (-2 variation)
+   Base  Excellent    Reward              Reward                         Reward              Minor deduction
+```
+
+**Example - Aggressive Driver:**
+```
+35 = 50 - 8 (high jerk) - 6 (jerky acceleration) - 5 (harsh braking) - 3 (over-revving) + margin
+   Base  Lost points    Lost points              Lost opportunity     Lost points          for variation
 ```
 
 ## Output Structure
 
-### Basic Scoring
-```python
-engine = ScoringEngine()
-scores = engine.score_trip_from_samples(trip_events)
-# Returns: {smoothness, safety, overall, sample_count, ...}
-```
-
-### Explainable Scoring
+### Explainable Scoring with Rewards
 ```python
 engine = ExplainableScoringEngine()
 result = engine.score_trip_from_samples_with_explanation(trip_events)
@@ -55,119 +62,151 @@ result = engine.score_trip_from_samples_with_explanation(trip_events)
 # Structure:
 {
     "scores": {
-        "smoothness": 87.5,
-        "safety": 92.0,
-        "overall": 89.75,
+        "smoothness": 78,        # Reward score (0-100, baseline 50)
+        "sample_count": 12,
         ...
     },
     "smoothness_explanation": {
-        "prediction": 87.5,
-        "base_value": 75.0,
-        "feature_contributions": {
-            "avg_jerk": 8.5,
-            "avg_accel_std": 4.0,
-            "total_harsh_brakes": -5.0,
-            "total_harsh_accels": -2.0
+        "prediction": 78,                    # Trip earned 78 reward points
+        "base_value": 50,                    # Baseline for normal driving
+        "feature_contributions": {           # What behaviors earned/lost points
+            "avg_jerk": 8,                   # Earned 8 pts for low jerk
+            "avg_accel_std": 6,              # Earned 6 pts for smooth acceleration
+            "max_decel_g": 5,                # Earned 5 pts for gentle braking
+            "total_harsh_brakes": 3,         # Earned 3 pts for no harsh brakes
+            "total_harsh_accels": 3,         # Earned 3 pts for no harsh acceleration
+            "total_harsh_corners": 3,        # Earned 3 pts for smooth cornering
+            "avg_lateral_g": 4,              # Earned 4 pts for minimal lateral forces
+            "avg_speed_std": 6,              # Earned 6 pts for consistent speed
+            "avg_rpm": 5,                    # Earned 5 pts for efficient RPM
+            "total_over_revs": 3,            # Earned 3 pts for no over-revving
+            "total_idle_seconds": 3,         # Earned 3 pts for minimal idling
+            "max_speed_kmh": 4,              # Earned 4 pts for controlled speed
+            "noise": -1.8                    # Small variation (realistic)
         },
-        "waterfall": [
-            ("base_value", 75.0),
-            ("avg_jerk", 8.5),
-            ("avg_accel_std", 4.0),
-            ("total_harsh_brakes", -5.0),
-            ("total_harsh_accels", -2.0)
+        "top_rewards": [
+            ("avg_jerk", 8, "Low jerk (smooth transitions)"),
+            ("avg_speed_std", 6, "Consistent speed"),
+            ("avg_accel_std", 6, "Smooth acceleration pressure")
         ],
-        "top_positive": [
-            ("avg_jerk", 8.5),
-            ("avg_accel_std", 4.0)
+        "improvement_opportunities": [
+            ("max_lateral_g", 4, "Try smoother cornering +2-3 pts"),
+            ("avg_rpm", 5, "Maintain RPM < 1800 for +2 pts more")
         ],
-        "top_negative": [
-            ("total_harsh_brakes", -5.0),
-            ("total_harsh_accels", -2.0)
-        ],
-        "explanation_text": "SMOOTHNESS PREDICTION: 87.5/100\n..."
+        "explanation_text": "TRIP REWARD: 78/100\n\nBehaviors that earned points:\n✅ Low jerk (+8)\n✅ Consistent speed (+6)..."
     },
     "raw_features": {
-        "avg_jerk": 0.008,
-        "avg_accel_std": 0.10,
-        "total_harsh_brakes": 2,
-        "total_harsh_accels": 1,
+        "avg_jerk": 0.007,
+        "avg_accel_std": 0.09,
+        "total_harsh_brakes": 0,
+        "total_harsh_accels": 0,
         ...
     }
 }
 ```
 
-## Features Explained
+### 1. **avg_jerk** (Acceleration Smoothness)
+- **What it is**: How smoothly driver changes acceleration
+- **Reward threshold**: < 0.008 m/s³ (earns +8 pts)
+- **Interpretation**: Lower is better (smoother = more reward)
+- **Examples**:
+  - 0.005 → Smooth, excellent transitions ✅
+  - 0.010 → Jerky transitions, loses reward points
 
-### 1. **avg_jerk** (Mean Jerk)
-- **What it is**: Smoothness of acceleration changes
-- **Range**: 0.0 to ~0.05 (higher = choppier)
-- **Good value**: < 0.01 (smooth transitions)
-- **SHAP contribution**: 
-  - Positive (good): Low jerk → increases smoothness
-  - Negative (bad): High jerk → decreases smoothness
+### 2. **avg_accel_std** (Consistent Acceleration Pressure)
+- **What it is**: Variability in how hard driver presses pedal
+- **Reward threshold**: < 0.10 g (earns +6 pts)
+- **Interpretation**: Lower is better (consistent = more reward)
+- **Examples**:
+  - 0.08 g → Steady pressure, predictable ✅
+  - 0.15 g → Erratic pressure, loses points
 
-### 2. **avg_accel_std** (Acceleration Consistency)
-- **What it is**: Variability in acceleration throughout trip
-- **Range**: 0.0 to ~0.5 (higher = more jerky)
-- **Good value**: < 0.15 (consistent)
-- **SHAP contribution**:
-  - Positive (good): Low variability → smooth driving
-  - Negative (bad): High variability → inconsistent
+### 3. **total_harsh_brakes** (Abrupt Braking Events)
+- **What it is**: Count of sudden hard braking moments
+- **Reward threshold**: = 0 events (earns +3 pts)
+- **Interpretation**: Zero is best (safety incentive)
+- **Examples**:
+  - 0 events → No sudden stops, full reward ✅
+  - 3+ events → Reactive/emergency braking, loses opportunity
 
-### 3. **total_harsh_brakes** (Harsh Braking Events)
-- **What it is**: Count of sudden braking (accel < -0.8 m/s²)
-- **Range**: 0 to ~20 per 2-hour trip
-- **Good value**: 0-2 (few harsh events)
-- **SHAP contribution**:
-  - Positive (good): No harsh brakes → safe
-  - Negative (bad): Multiple harsh brakes → unsafe
+### 4. **total_harsh_accels** (Aggressive Acceleration Events)
+- **What it is**: Count of sudden hard acceleration moments
+- **Reward threshold**: = 0 events (earns +3 pts)
+- **Interpretation**: Zero is best (fuel efficiency + safety)
+- **Examples**:
+  - 0 events → Smooth starts, full reward ✅
+  - 2+ events → Aggressive starts, loses opportunity
 
-### 4. **total_harsh_accels** (Harsh Acceleration Events)
-- **What it is**: Count of sudden acceleration (accel > 0.7 m/s²)
-- **Range**: 0 to ~10 per 2-hour trip
-- **Good value**: 0-1 (minimal)
-- **SHAP contribution**:
-  - Positive (good): No harsh accels → controlled
-  - Negative (bad): Multiple harsh accels → aggressive
+### 5. **avg_lateral_g** (Smooth Cornering)
+- **What it is**: Average sideways G-force during turns
+- **Reward threshold**: < 0.02 g (earns +4 pts)
+- **Interpretation**: Gentle cornering = more reward
+- **Examples**:
+  - 0.015 g → Smooth, controlled turns ✅
+  - 0.05 g → Aggressive cornering, loses points
 
 ## Interpretation Guide
 
-### Reading SHAP Values
+### Reading Reward Contributions
 
 ```
 Feature: avg_jerk
-Value: 0.008
-Contribution: +8.5 pts
+Value: 0.007
+Reward: +8 pts
 
 Interpretation:
-Your jerk value of 0.008 is BETTER than average.
-This adds +8.5 points to your smoothness score.
-(Average jerk would contribute 0 pts)
+✅ Your jerk is EXCELLENT (0.007 < threshold of 0.008)
+   You earned the FULL +8 reward points for smooth acceleration!
 ```
 
-### Positive Factors (✅)
-Features that **improve** your smoothness score:
-- Low jerk (smooth acceleration transitions)
-- Low acceleration variability (consistent driving)
-- Minimal harsh events
+```
+Feature: avg_jerk
+Value: 0.012
+Reward: 0 pts
 
-### Negative Factors (❌)
-Features that **reduce** your smoothness score:
-- High jerk (choppy acceleration)
-- High acceleration variability (erratic driving)
-- Multiple harsh braking/acceleration events
+Interpretation:
+⚠️  Your jerk is above threshold (0.012 > 0.008)
+   You didn't earn the +8 reward for this behavior.
+   Tip: Smoother acceleration transitions would earn +8 pts.
+```
+
+### Reward Categories
+
+#### ✅ Behaviors That Earn Points
+- **Low jerk** (+8 pts) - Smooth acceleration transitions
+- **Consistent acceleration** (+6 pts) - Steady pedal pressure
+- **No harsh braking** (+3 pts) - Smooth, predictive braking
+- **No harsh acceleration** (+3 pts) - Controlled starts
+- **Smooth cornering** (+4 pts) - Gentle lateral movements
+- **Consistent speed** (+6 pts) - Steady velocity, less fuel waste
+- **Efficient RPM** (+5 pts) - Lower average engine speed
+- **No over-revving** (+3 pts) - Controlled engine operation
+- **Minimal idling** (+3 pts) - Efficient time management
+- **Controlled top speed** (+4 pts) - Safety and efficiency
+
+#### ⚠️ Behaviors That Don't Earn (Low Reward)
+- High jerk - Abrupt acceleration changes
+- Inconsistent acceleration - Erratic pedal control
+- Harsh braking - Sudden stops
+- Harsh acceleration - Aggressive starts
+- Aggressive cornering - High lateral forces  
+- Speed variability - Erratic velocity changes
+- High RPM - Engine racing
+- Over-revving - Hard on engine
+- Excessive idling - Wasted fuel
+- Speeding - Safety and efficiency concerns
 
 ## Methods
 
 ### 1. explain_smoothness_prediction(trip_features)
-Explains a single trip's smoothness score.
+Explains a single trip's reward score.
 
 ```python
 features = {
-    "avg_jerk": 0.008,
-    "avg_accel_std": 0.10,
-    "total_harsh_brakes": 2,
-    "total_harsh_accels": 1
+    "avg_jerk": 0.007,
+    "avg_accel_std": 0.09,
+    "total_harsh_brakes": 0,
+    "total_harsh_accels": 0
 }
 
 explanation = engine.explain_smoothness_prediction(features)
@@ -176,20 +215,23 @@ print(explanation["explanation_text"])
 
 Output:
 ```
-SMOOTHNESS PREDICTION: 87.5/100
-Baseline (avg driver): 75.0/100
-Your result: 87.5/100 (+12.5)
+🎯 TRIP REWARD SCORE: 78/100
+📊 Baseline (normal driving): 50/100
+📈 Your earned: 78/100 (+28 reward points)
 
-✅ POSITIVE FACTORS (improving smoothness):
-  • avg_jerk: 0.008 [+8.5 pts]
-  • avg_accel_std: 0.1 [+4.0 pts]
+✅ REWARDS EARNED (showing your strengths):
+  • Low jerk: 0.007 [+8 pts] 🎁 Excellent smooth acceleration!
+  • Consistent pressure: 0.09g [+6 pts] 🎁 Very steady driving!
+  • No harsh brakes: 0 [+3 pts] 🎁 Smooth, predictive braking!
+  • No harsh acceleration: 0 [+3 pts] 🎁 Controlled starts!
 
-❌ NEGATIVE FACTORS (reducing smoothness):
-  • total_harsh_brakes: 2 [-5.0 pts]
+⚠️  IMPROVEMENT OPPORTUNITIES (next steps for more reward):
+  • Speed variability: 4.2 km/h std → Target < 8.0 (+potential 6 pts)
+  • RPM management: 1950 avg → Target < 2000 (+potential 5 pts)
 ```
 
 ### 2. score_trip_from_samples_with_explanation(events)
-Scores a trip AND explains the result.
+Scores a trip AND explains the reward breakdown.
 
 ```python
 result = engine.score_trip_from_samples_with_explanation(trip_events)

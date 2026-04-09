@@ -1,34 +1,41 @@
-# Tracedata Candidate - Smoothness Scoring ML Project
+# Tracedata Candidate - Reward-Based Smoothness Scoring
 
 **For: MTech SWE Students & Aspiring Engineers**
 
-Welcome! This project teaches you how to build a **machine learning system** that predicts how smoothly a driver is driving. Don't worry if you've never done this before—we'll explain everything step by step.
+Welcome! This project teaches you how to build a **machine learning system** that **rewards and recognizes smooth driving** while identifying behaviors for improvement.
 
 ---
 
 ## 🎯 What's This Project About?
 
-Imagine a company has truck drivers, and they want to know:
-- **Which drivers are smooth?** (comfortable for passengers)
-- **Which drivers are rough?** (aggressive, jerky movements)
-- **Why is this driver's score low?** (explain which behaviors hurt)
+Imagine a company has truck drivers, and they want to:
+- **Reward smooth drivers** with incentives (good scores = 90+)
+- **Recognize safe, efficient driving** (consistent = more points earned)
+- **Help drivers improve** (explain which behaviors earned/lost points)
 
 This project uses **machine learning** to:
-1. ✅ **Learn** from past driving patterns
-2. ✅ **Predict** smoothness scores for new drivers
-3. ✅ **Explain** WHY a driver got that score
+1. ✅ **Learn** from driving patterns
+2. ✅ **Score trips** on a reward scale (0-100, baseline=50)
+3. ✅ **Explain WHY** using SHAP (show which behaviors earned points)
+
+### Score Meanings
+| Score | Interpretation | Status |
+|-------|---|---|
+| **90+** | Excellent smooth driving | 🎁 **Eligible for bonuses** |
+| **70–89** | Good, solid driving | ✅ **Rewarded performance** |
+| **50–69** | Average, normal operation | ⚠️ **Room to improve** |
+| **<50** | Aggressive, jerky driving | ❌ **Not rewarded** |
 
 ---
 
 ## 📚 Table of Contents
 
 1. **[Beginner's Guide](GETTING_STARTED.md)** - Start here! No experience needed.
-2. **[How It Works](docs/ARCHITECTURE.md)** - Simple explanations of concepts
-3. **[Data Guide](docs/FEATURE_ENGINEERING.md)** - What data we use and why
-4. **[ML Pipeline](docs/MLOPS_GUIDE.md)** - How to train the model
-5. **[Understanding Results](docs/SHAP_EXPLAINABILITY.md)** - Read the predictions
-6. **[Visual Guide](VISUAL_ENHANCEMENTS.md)** - See all diagrams explained ✨ NEW!
-7. **[Code Structure](#-code-structure)** - File organization
+2. **[System Architecture](docs/ARCHITECTURE.md)** - How the scoring works
+3. **[Features Explained](docs/FEATURE_ENGINEERING.md)** - What behaviors get rewarded (+points)
+4. **[ML Pipeline Guide](docs/MLOPS_GUIDE.md)** - Train the model yourself
+5. **[Understanding Scores](docs/SHAP_EXPLAINABILITY.md)** - Why each trip earned points
+6. **[Visual Guide](VISUAL_ENHANCEMENTS.md)** - All diagrams explained ✨
 
 💡 **All documentation includes helpful Mermaid diagrams for visual learning!**
 
@@ -54,30 +61,28 @@ mlflow ui
 ```
 
 **What happens:**
-- Generates 300 fake trips (don't worry, it's realistic data)
-- Trains a machine learning model
-- Shows you the results in a nice web interface
+- Generates 300 realistic synthetic trips (different driver profiles)
+- Trains a model to predict **reward scores** (0-100)
+- Shows results in a web interface with metrics and history
 
 **Expected time:** ~2-3 minutes
 
-### How It All Works (The Data Flow)
+### How the Reward System Works
 
 ```mermaid
 graph LR
-    A["📱 Device Telematics"] -->|10-min windows| B["📊 Parse Features"]
-    B -->|18 features| C["🎯 Aggregate Trip"]
-    C -->|Trip Features| D["🤖 ML Model"]
-    D -->|Score 0-100| E["📈 Smoothness Prediction"]
-    E -->|Why?| F["🔍 SHAP Explanation"]
-    F -->|Drivers Ranked| G["✅ Output Results"]
+    A["📱 Telematics Data<br/>10-min windows"] -->|Raw signals| B["📊 Extract Features<br/>18 Telematics Metrics"]
+    B -->|Jerk, Accel, Speed,<br/>RPM, etc| C["🎯 Score Generation<br/>Baseline=50"]
+    C -->|+8 Low jerk<br/>+6 Smooth accel<br/>+3 No harsh events| D["🏆 Reward Score<br/>0-100"]
+    D -->|Score breakdown| E["🔍 SHAP Explanation<br/>What earned points"]
+    E -->|Driver feedback| F["✅ Coaching Tips<br/>How to earn more"]
     
     style A fill:#e1f5ff
     style B fill:#f3e5f5
-    style C fill:#f3e5f5
-    style D fill:#fff3e0
-    style E fill:#e8f5e9
-    style F fill:#fce4ec
-    style G fill:#c8e6c9
+    style C fill:#fff3e0
+    style D fill:#c8e6c9
+    style E fill:#fce4ec
+    style F fill:#ffecb3
 ```
 
 ---

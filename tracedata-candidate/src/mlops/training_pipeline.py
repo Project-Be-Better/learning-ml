@@ -15,6 +15,7 @@ Run with: python -m src.mlops.training_pipeline
 
 import json
 import logging
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, Tuple
@@ -34,8 +35,11 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import cross_val_score
 
-from src.core.smoothness_ml_engine import generate_synthetic_labels
-from src.utils.data_generation_strategy import (
+# Add tracedata-candidate/src to path to find local modules
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from core.smoothness_ml_engine import generate_synthetic_labels
+from utils.data_generation_strategy import (
     SyntheticDataPipeline,
 )
 
@@ -411,7 +415,7 @@ class MLOpsTrainingPipeline:
 
 def main():
     """Entry point for training pipeline."""
-    pipeline = MLOpsTrainingPipeline("mlops_config.yaml")
+    pipeline = MLOpsTrainingPipeline("tracedata-candidate/config/mlops_config.yaml")
     result = pipeline.run_pipeline()
 
     logger.info("\n📊 FINAL RESULTS:")

@@ -2,7 +2,22 @@
 
 ## Overview
 
-The smoothness ML engine now uses **18 comprehensive telematics features** across 5 dimensions to accurately predict driver smoothness and safety.
+The smoothness ML engine uses **18 comprehensive telematics features** across 5 dimensions to **reward smooth, safe, and efficient driving** (0-100 score baseline 50).
+
+## Reward-Based Scoring Model
+
+```
+SCORE = 50 (baseline)
+      + Rewards for smooth behaviors (max +52 total)
+      - Small random variation (±2.5)
+      = Final 0-100 reward score
+
+Score Bands:
+  90+  = Excellent (eligible for incentives)
+  70-89 = Good (solid driving)
+  50-69 = Average (normal operation)
+  <50  = Poor (aggressive, not rewarded)
+```
 
 ## All 18 Features (Visual Overview)
 
@@ -10,34 +25,34 @@ The smoothness ML engine now uses **18 comprehensive telematics features** acros
 graph TB
     FEATURES["🎯 18 Smoothness Features"]
     
-    FEATURES --> L["🔴 LONGITUDINAL<br/>Acceleration & Braking"]
-    FEATURES --> LA["🟡 LATERAL<br/>Turning & Cornering"]
-    FEATURES --> S["🟢 SPEED<br/>Velocity Control"]
-    FEATURES --> J["🔵 JERK<br/>Change Rates"]
-    FEATURES --> E["🟣 ENGINE<br/>RPM & Efficiency"]
+    FEATURES --> L["🔴 LONGITUDINAL<br/>Acceleration & Braking<br/>Max +17 pts"]
+    FEATURES --> LA["🟡 LATERAL<br/>Turning & Cornering<br/>Max +7 pts"]
+    FEATURES --> S["🟢 SPEED<br/>Velocity Control<br/>Max +10 pts"]
+    FEATURES --> J["🔵 JERK<br/>Change Rates<br/>Max +8 pts"]
+    FEATURES --> E["🟣 ENGINE<br/>RPM & Efficiency<br/>Max +11 pts"]
     
-    L --> L1["mean_accel_g"]
-    L --> L2["max_decel_g"]
-    L --> L3["harsh_brakes"]
-    L --> L4["harsh_accels"]
-    L --> L5["accel_std"]
+    L --> L1["avg_accel_g (+6)"]
+    L --> L2["max_decel_g (+5)"]
+    L --> L3["harsh_brakes (+3)"]
+    L --> L4["harsh_accels (+3)"]
+    L --> L5["accel_std (+6 wait, dup) - remove"]
     
-    LA --> LA1["mean_lateral_g"]
-    LA --> LA2["max_lateral_g"]
-    LA --> LA3["harsh_corners"]
+    LA --> LA1["mean_lateral_g (+4)"]
+    LA --> LA2["harsh_corners (+3)"]
+    LA --> LA3["max_lateral_g (info)"]
     
-    S --> S1["mean_speed_kmh"]
-    S --> S2["speed_std"]
-    S --> S3["max_speed_kmh"]
+    S --> S1["mean_speed_kmh (info)"]
+    S --> S2["speed_std (+6)"]
+    S --> S3["max_speed_kmh (+4)"]
     
-    J --> J1["avg_jerk"]
-    J --> J2["max_jerk"]
-    J --> J3["jerk_std"]
+    J --> J1["avg_jerk (+8)"]
+    J --> J2["jerk_std (info)"]
+    J --> J3["max_jerk (info)"]
     
-    E --> E1["mean_rpm"]
-    E --> E2["max_rpm"]
-    E --> E3["over_revs"]
-    E --> E4["idle_seconds"]
+    E --> E1["avg_rpm (+5)"]
+    E --> E2["max_rpm (info)"]
+    E --> E3["over_revs (+3)"]
+    E --> E4["idle_seconds (+3)"]
     
     style FEATURES fill:#fff9c4
     style L fill:#ffccbc
@@ -47,90 +62,185 @@ graph TB
     style E fill:#e1bee7
 ```
 
-## Feature Categories (Detailed)
+## Feature Categories (Reward Perspective)
+
+### 1. LONGITUDINAL ACCELERATION (5 features) - Max +17 pts reward
 Controls how smoothly the driver accelerates and brakes.
 
-| Feature | Unit | Range | Ideal | Penalty |
-|---------|------|-------|-------|---------|
-| `avg_accel_g` | g (gravity) | 0.0-0.5 | < 0.1 | Lower is better |
-| `avg_accel_std` | g (std dev) | 0.0-0.5 | < 0.15 | Lower is better |
-| `max_decel_g` | g (absolute) | 0.0-0.8 | < 0.3 | Lower is better |
-| `total_harsh_brakes` | count | 0-20 | 0-2 | 5 pts each |
-| `total_harsh_accels` | count | 0-15 | 0-1 | 4 pts each |
+| Feature | Unit | Reward Threshold | Reward | Interpretation |
+|---------|------|------------------|--------|-----------------|
+| `avg_jerk` | m/s³ | < 0.008 | +8 pts | Low = smoother transitions |
+| `avg_accel_std` | g | < 0.10 | +6 pts | Smooth = consistent pedal pressure |
+| `max_decel_g` | g | < 0.30 | +5 pts | Gentle = controlled braking |
+| `total_harsh_brakes` | count | 0 | +3 pts | Zero = predictive, smooth stops |
+| `total_harsh_accels` | count | 0 | +3 pts | Zero = controlled, efficient starts |
 
-**Physics**: Smooth drivers minimize jerk (rate of acceleration change) and maintain consistent throttle/brake pressure.
+**Reward Philosophy**: Drivers who modulate throttle/brake gently and predictively earn maximum points. Abrupt changes lose the reward opportunity.
 
 ---
 
-### 2. LATERAL ACCELERATION (3 features)
+### 2. LATERAL ACCELERATION (3 features) - Max +7 pts reward
 Controls how smoothly the driver navigates turns and curves.
 
-| Feature | Unit | Range | Ideal | Penalty |
-|---------|------|-------|-------|---------|
-| `avg_lateral_g` | g (mean) | 0.0-0.3 | < 0.05 | 150 pts per 0.02g |
-| `max_lateral_g` | g (max) | 0.0-0.5 | < 0.15 | 100 pts per 0.15g |
-| `total_harsh_corners` | count | 0-10 | 0-1 | 3 pts each |
+| Feature | Unit | Reward Threshold | Reward | Interpretation |
+|---------|------|------------------|--------|-----------------|
+| `avg_lateral_g` | g | < 0.02 | +4 pts | Gentle = stable cornering |
+| `total_harsh_corners` | count | 0 | +3 pts | Zero = smooth, controlled turns |
+| `max_lateral_g` | g | - | Info | Max observed (informational) |
 
-**Physics**: Smooth drivers lean into turns gently, distributing lateral forces over time rather than abrupt swerves.
+**Reward Philosophy**: Smooth drivers lean into turns gradually. Sharp swerves (high lateral G) lose the reward opportunity. Corners should feel like slow, controlled movements.
 
 ---
 
-### 3. SPEED CONSISTENCY (3 features)
+### 3. SPEED CONSISTENCY (3 features) - Max +10 pts reward
 Controls how predictably the driver manages velocity.
 
-| Feature | Unit | Range | Ideal | Penalty |
-|---------|------|-------|-------|---------|
-| `avg_speed_kmh` | km/h | 20-120 | 60-80 | Informational |
-| `avg_speed_std` | km/h (std dev) | 0-20 | < 5 | 30 pts per 10 km/h |
-| `max_speed_kmh` | km/h (max) | 0-180 | < 100 | 0.5 pts per km/h over 80 |
+| Feature | Unit | Reward Threshold | Reward | Interpretation |
+|---------|------|------------------|--------|-----------------|
+| `avg_speed_std` | km/h | < 8.0 | +6 pts | Steady = fuel-efficient, predictable |
+| `max_speed_kmh` | km/h | < 95 | +4 pts | Controlled = safe, legal |
+| `avg_speed_kmh` | km/h | - | Info | Average velocity (informational) |
 
-**Physics**: Consistent speed reduces stress on drivetrain and enables better braking response. Erratic speed = unpredictable driving.
-
----
-
-### 4. JERK & ACCELERATION SMOOTHNESS (3 features)
-Direct measurement of acceleration smoothness (most important for comfort).
-
-| Feature | Unit | Range | Ideal | Penalty |
-|---------|------|-------|-------|---------|
-| `avg_jerk` | m/s³ | 0.0-0.05 | < 0.01 | 300 pts per 0.005 m/s³ |
-| `avg_jerk_std` | m/s³ (std dev) | 0.0-0.01 | < 0.005 | Informational |
-| `max_jerk` | m/s³ (max) | 0.0-0.1 | < 0.05 | Informational |
-
-**Physics**: Jerk is the derivative of acceleration - it's what passengers *feel*. Smooth drivers minimize jerk by gradual throttle/brake changes.
+**Reward Philosophy**: Consistent speed means smooth climate control, better braking response, and better fuel economy. Rapid speed changes indicate reactive (not predictive) driving.
 
 ---
 
-### 5. ENGINE BEHAVIOR (4 features)
+### 4. JERK & ACCELERATION SMOOTHNESS (3 features) - Max +8 pts reward
+Direct measurement of acceleration smoothness (most important for passenger comfort).
+
+| Feature | Unit | Reward Threshold | Reward | Interpretation |
+|---------|------|------------------|--------|-----------------|
+| `avg_jerk` | m/s³ | < 0.008 | +8 pts | Low = passengers don't feel jerked around |
+| `avg_jerk_std` | m/s³ | - | Info | Consistency of jerky behavior |
+| `max_jerk` | m/s³ | - | Info | Peak jerkiness (informational) |
+
+**Reward Philosophy**: Jerk is what passengers *feel*. Smooth drivers minimize jerk by gradual throttle/brake changes. High jerk = uncomfortable, inefficient driving.
+
+---
+
+### 5. ENGINE BEHAVIOR (4 features) - Max +11 pts reward
 Controls efficient engine operation and mechanical stress.
 
-| Feature | Unit | Range | Ideal | Penalty |
-|---------|------|-------|-------|---------|
-| `avg_rpm` | RPM | 0-3500 | 1500-2200 | Informational |
-| `max_rpm` | RPM (max) | 0-5000 | < 3500 | Informational |
-| `total_idle_seconds` | seconds | 0-600 | < 60 | 10 pts per 600 sec |
-| `total_over_revs` | count | 0-10 | 0 | 15 pts each |
+| Feature | Unit | Reward Threshold | Reward | Interpretation |
+|---------|------|------------------|--------|-----------------|
+| `avg_rpm` | RPM | < 2000 | +5 pts | Low = efficient, less wear |
+| `total_over_revs` | count | 0 | +3 pts | Zero = respects engine limits |
+| `total_idle_seconds` | sec | < 50 | +3 pts | Minimal = good time management |
+| `max_rpm` | RPM | - | Info | Peak RPM (informational) |
 
-**Physics**: Over-revving damages engine and increases fuel consumption. Excessive idling wastes fuel and shows poor traffic management.
+**Reward Philosophy**: Efficient drivers keep RPM low (reduces fuel consumption, engine wear). Avoid over-revving (hard on engine + waste fuel). Minimize idling (wasted fuel during traffic).
 
 ---
 
-## Scoring Formula
+## Reward-Based Scoring Formula
 
-### Base Score
+### Baseline
 ```
-Initial Score = 90 (excellent driver baseline)
+Score = 50 (neutral baseline for normal driving)
 ```
 
-### Penalties Applied (in order)
+### Rewards Added (by category)
 
-#### Longitudinal (Most Critical)
+#### LONGITUDINAL (Smooth Acceleration/Braking) - Up to +17 pts
 ```
-- avg_jerk × 300              (0.008 jerk = -2.4 pts)
-- avg_accel_std × 200          (0.12 std = -24 pts)
-- max_decel_g × 50             (0.3g max = -15 pts)
-- total_harsh_brakes × 5       (2 events = -10 pts)
-- total_harsh_accels × 4       (1 event = -4 pts)
+IF avg_jerk < 0.008        → +8 pts (smooth transitions)
+IF avg_accel_std < 0.10    → +6 pts (consistent pedal)
+IF max_decel_g < 0.30      → +5 pts (gentle braking)
+IF total_harsh_brakes == 0 → +3 pts (no jerky stops)
+IF total_harsh_accels == 0 → +3 pts (no jerky starts)
+   Max possible: 8+6+5+3+3 = 25 pts (but structured)
+```
+
+#### LATERAL (Smooth Cornering) - Up to +7 pts
+```
+IF avg_lateral_g < 0.02    → +4 pts (gentle cornering)
+IF total_harsh_corners == 0 → +3 pts (no aggressive swerves)
+   Max possible: 4+3 = 7 pts
+```
+
+#### SPEED (Consistent, Controlled) - Up to +10 pts
+```
+IF avg_speed_std < 8.0     → +6 pts (steady velocity)
+IF max_speed_kmh < 95      → +4 pts (controlled top speed)
+   Max possible: 6+4 = 10 pts
+```
+
+#### JERK (Acceleration Smoothness) - Up to +8 pts
+```
+IF avg_jerk < 0.008        → +8 pts (very smooth transitions)
+   Note: Overlaps with longitudinal but prioritized for comfort
+   Max possible: 8 pts
+```
+
+#### ENGINE (Efficiency) - Up to +11 pts
+```
+IF avg_rpm < 2000          → +5 pts (fuel-efficient RPM)
+IF total_over_revs == 0    → +3 pts (respects engine limits)
+IF total_idle_seconds < 50 → +3 pts (productive driving time)
+   Max possible: 5+3+3 = 11 pts
+```
+
+### Final Calculation
+```
+Final Score = 50 + total_rewards + random_noise(±2.5)
+             = 50 + [0 to 52 possible] + noise
+             ≈ 0 to 100 (clipped to valid range)
+```
+
+## Example Calculations
+
+### Driver A: Excellent (Score = 85)
+```
+Baseline:              50
+Low jerk (0.007):    +8
+Smooth accel (0.08): +6
+Gentle braking:      +5
+No harsh brakes:     +3
+No harsh accels:     +3
+Smooth corners:      +4
+Consistent speed:    +6
+Efficient RPM:       +5
+No idle:             +3
+Noise:               -8
+──────────────────────
+Final Score:         85 ✅ (eligible for 15% bonus)
+```
+
+### Driver B: Average (Score = 58)
+```
+Baseline:              50
+Low jerk?     No      0
+Smooth accel? Partial +3
+Gentle brake? Partial +2
+No harsh events:      +3
+Smooth corners:       +3
+Consistent speed:
+   Partial            +2
+Efficient RPM:        +5
+Some idle (-5):      -3
+Noise:               -8
+──────────────────────
+Final Score:         58 ✅ (average, can improve)
+```
+
+### Driver C: Aggressive (Score = 32)
+```
+Baseline:              50
+High jerk (0.015):    0 (missed +8)
+Jerky accel (0.18):   0 (missed +6)
+Hard braking (0.5g):  0 (missed +5)
+2 harsh brakes:       0 (missed +3)
+1 harsh accel:        0 (missed +3)
+Aggressive corners:   0 (missed +4)
+Speed variations:     0 (missed +6)
+High RPM (2500):      0 (missed +5)
+Over-revving:         0 (missed +3)
+Noise:               -8
+──────────────────────
+Final Score:         32 ❌ (not rewarded - too aggressive)
+```
+
+---
 ```
 
 #### Lateral (Important)

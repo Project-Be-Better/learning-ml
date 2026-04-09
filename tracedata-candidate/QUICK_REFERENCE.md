@@ -1,6 +1,32 @@
-# Quick Reference Guide
+# Quick Reference Guide - Reward-Based Smoothness Scoring
 
 **For when you're in a hurry and need to remember something quickly**
+
+---
+
+## 🎯 Score Quick Lookup
+
+**What does my score mean?**
+
+| Score | Meaning | Example Driver |
+|-------|---------|---|
+| **90+** | Excellent - Eligible for bonuses | Smooth, consistent, safe |
+| **70–89** | Good - Solid, rewarded performance | Generally smooth, few issues |
+| **50–69** | Average - Normal operation | Variable, occasional rough moments |
+| **<50** | Poor - Not rewarded | Aggressive, jerky, unsafe |
+
+**How are points earned?** (from baseline of 50)
+- Smooth acceleration +8
+- Consistent pressure +6
+- Gentle braking +5
+- No harsh braking +3
+- No harsh acceleration +3
+- Smooth cornering +4
+- Consistent speed +6  
+- Efficient RPM +5
+- No over-revving +3
+- Minimal idling +3
+- Controlled top speed +4
 
 ---
 
@@ -17,7 +43,7 @@ pip install mlflow xgboost scikit-learn pandas numpy
 
 ### Run Training
 ```bash
-# Option 1: Direct Python
+# Option 1: Direct Python (from root)
 python -m src.mlops.training_pipeline
 
 # Option 2: Windows batch script
@@ -33,7 +59,19 @@ bash run_mlops_training.sh
 mlflow ui
 
 # Then open: http://localhost:5000
+# View: Experiments → smoothness-scoring-production
 ```
+
+---
+
+## 📊 Key Metrics to Watch
+
+| Metric | What It Means | Target |
+|--------|---|---|
+| **Test R²** | How well model predicts scores | ≥ 0.85 |
+| **Test RMSE** | Average prediction error | < 5 pts |
+| **CV Mean R²** | Consistency across splits | ≥ 0.85 |
+| **MAE** | Mean absolute error | < 3 pts |
 
 ---
 
@@ -42,12 +80,12 @@ mlflow ui
 | What I Want | Read This | Why |
 |-----------|-----------|-----|
 | Just get it working | GETTING_STARTED.md | Step-by-step instructions |
-| Understand the system | ARCHITECTURE.md | How all pieces fit together |
-| Know what data means | docs/FEATURE_ENGINEERING.md | Explanation of all 18 features |
+| Understand the system | docs/ARCHITECTURE.md | How all pieces fit together |
+| Know what earns rewards | docs/FEATURE_ENGINEERING.md | 12 reward behaviors explained |
 | See data flow visually | docs/DATA_FLOW.md | ASCII diagrams |
 | Train and tune | docs/MLOPS_GUIDE.md | Complete training guide |
-| Understand predictions | docs/SHAP_EXPLAINABILITY.md | Why model predicts what it does |
-| Read the code | src/core/smoothness_ml_engine.py | Heavily commented code |
+| Understand predictions | docs/SHAP_EXPLAINABILITY.md | Why trips earn their score |
+| Read the code | src/core/smoothness_ml_engine.py | Generate labels logic |
 
 ---
 
